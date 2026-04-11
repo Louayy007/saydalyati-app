@@ -6,17 +6,49 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+*.pid
+*.pid.lock
+*.seed
 
+# Dependencies
 node_modules
+
+# Build output
 dist
 dist-ssr
+build
+coverage
+
+# Caches
+.cache
+.parcel-cache
+.vite
+.eslintcache
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!.env.sample
 *.local
+
+# Certificates/keys
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Framework/platform folders
+.vercel
+.netlify
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj
