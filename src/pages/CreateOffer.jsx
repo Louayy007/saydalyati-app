@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiRequest } from '../lib/api';
 
 const navItems = [
   {
@@ -118,29 +119,27 @@ export default function CreateOffer() {
     
     setLoading(true);
 
-    // On prépare l'objet pour ton Backend (Schéma Penurie)
     const dataToSend = {
-      nom: form.medName,
-      quantite: form.quantity,
-      localisation: form.contactName, // Ou une autre variable de ton choix
-      degreUrgence: priority 
+      title: form.medName,
+      category: form.category,
+      type: 'demande',
+      quantity: Number.parseInt(form.quantity, 10) || 1,
+      unit: 'unités',
+      urgency: priority.toLowerCase(),
+      wilaya: form.contactName,
+      notes: form.notes || null,
+      priceDa: null,
     };
 
     try {
-      const response = await fetch('http://localhost:5000/api/penuries', {
+      await apiRequest('/api/listings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dataToSend),
       });
-
-      if (response.ok) {
-        setSubmitted(true);
-      } else {
-        alert("Erreur lors de l'enregistrement sur le serveur.");
-      }
+      setSubmitted(true);
     } catch (error) {
       console.error("Erreur réseau:", error);
-      alert("Le serveur backend ne semble pas démarré.");
+      alert(error.message || "Le serveur backend ne semble pas démarré.");
     } finally {
       setLoading(false);
     }
@@ -183,12 +182,25 @@ export default function CreateOffer() {
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Déclarer une pénurie</h1>
           </div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-teal-500 flex items-center justify-center text-white font-bold text-sm">A</div>
-            <div>
-              <p className="text-sm font-semibold text-gray-800 leading-none">Admin</p>
-              <p className="text-xs text-teal-600 mt-0.5">Pharmacie</p>
-            </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/exchange-requests')}
+              className="relative w-9 h-9 rounded-xl bg-gray-50 hover:bg-gray-100 flex items-center justify-center border border-gray-200"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5 text-gray-500">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+              </svg>
+            </button>
+            <button
+              onClick={() => navigate('/profile')}
+              className="flex items-center gap-2.5 rounded-xl px-2 py-1 hover:bg-gray-50 transition-colors"
+            >
+              <div className="w-9 h-9 rounded-xl bg-teal-500 flex items-center justify-center text-white font-bold text-sm">A</div>
+              <div>
+                <p className="text-sm font-semibold text-gray-800 leading-none">Admin</p>
+                <p className="text-xs text-teal-600 mt-0.5">Pharmacie</p>
+              </div>
+            </button>
           </div>
         </header>
 

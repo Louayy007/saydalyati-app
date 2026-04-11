@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiRequest, clearAuthSession } from '../lib/api';
 
 const navItems = [
   {
@@ -146,7 +147,7 @@ function Sidebar({ activePath, pendingCount }) {
           <p className="text-xs font-semibold text-gray-700">Pharmacie Centrale</p>
           <p className="text-xs text-gray-400">Alger, Algérie</p>
         </div>
-        <button onClick={() => navigate('/login')}
+        <button onClick={() => { clearAuthSession(); navigate('/login'); }}
           className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
@@ -162,9 +163,31 @@ function Sidebar({ activePath, pendingCount }) {
 function RequestCard({ req, onAccept, onRefuse }) {
   const isPending = req.tab === 'pending';
   const isAccepted = req.tab === 'accepted' || req.tab === 'sent';
+  const [isAccepting, setIsAccepting] = useState(false);
+  const acceptTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (acceptTimerRef.current) {
+        clearTimeout(acceptTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleAcceptClick = () => {
+    if (isAccepting) return;
+    setIsAccepting(true);
+    acceptTimerRef.current = setTimeout(() => {
+      onAccept(req.id);
+    }, 300);
+  };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+    <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-all duration-300 ${
+      isAccepting
+        ? 'opacity-0 translate-x-6 scale-[0.98] blur-[1px] pointer-events-none'
+        : 'opacity-100 translate-x-0 scale-100 hover:shadow-md'
+    }`}>
       {/* Top section */}
       <div className="p-5">
         <div className="flex items-start gap-4">
@@ -268,21 +291,25 @@ function RequestCard({ req, onAccept, onRefuse }) {
 
       {/* Action Buttons — only for pending */}
       {isPending && (
-        <div className="grid grid-cols-2 border-t border-gray-100">
-          <button onClick={() => onAccept(req.id)}
-            className="flex items-center justify-center gap-2 py-3.5 bg-teal-500 hover:bg-teal-600 text-white text-sm font-medium transition-colors">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+        <div className="px-5 pb-5 pt-1">
+          <div className="grid grid-cols-2 gap-3 rounded-2xl bg-gray-50 p-2 border border-gray-100">
+            <button onClick={handleAcceptClick}
+            disabled={isAccepting}
+            className="flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white text-sm font-semibold transition-all shadow-sm hover:shadow-md disabled:opacity-70 disabled:cursor-not-allowed">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-4 h-4">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
             </svg>
-            Accepter la demande
+            {isAccepting ? 'Acceptation...' : 'Accepter la demande'}
           </button>
-          <button onClick={() => onRefuse(req.id)}
-            className="flex items-center justify-center gap-2 py-3.5 bg-gray-50 hover:bg-red-50 text-gray-500 hover:text-red-500 text-sm font-medium transition-colors border-l border-gray-100">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+            <button onClick={() => onRefuse(req.id)}
+            disabled={isAccepting}
+            className="flex items-center justify-center gap-2 py-3 rounded-xl bg-white hover:bg-rose-50 text-gray-600 hover:text-rose-600 text-sm font-semibold transition-all border border-gray-200 hover:border-rose-200">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-4 h-4">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
             Refuser
           </button>
+          </div>
         </div>
       )}
     </div>
@@ -293,26 +320,81 @@ function RequestCard({ req, onAccept, onRefuse }) {
 export default function ExchangeRequests() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('pending');
-  const [requests, setRequests] = useState(INITIAL_REQUESTS);
-  const [acceptedList, setAcceptedList] = useState(ACCEPTED_REQUESTS);
-  const [sentList] = useState(SENT_ACCEPTED);
+  const [requests, setRequests] = useState([]);
+  const [acceptedList, setAcceptedList] = useState([]);
+  const [sentList, setSentList] = useState([]);
+
+  useEffect(() => {
+    function mapRequest(r, tab) {
+      return {
+        id: r.id,
+        status: r.status,
+        tab,
+        medName: r.listing?.title || 'N/A',
+        medImage: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=120&h=120&fit=crop',
+        time: new Date(r.createdAt).toLocaleString('fr-FR'),
+        qty: `${r.listing?.quantity || 0} ${r.listing?.unit || ''}`,
+        expiry: 'N/A',
+        message: r.message ? `"${r.message}"` : '"Aucun message"',
+        requesterOrg: r.requester?.establishmentName || 'N/A',
+        requesterName: r.requester?.fullName || 'N/A',
+        email: r.requester?.email || 'N/A',
+        phone: r.requester?.phone || 'N/A',
+        wilaya: r.listing?.wilaya || 'N/A',
+        acceptedDate: r.status === 'accepted' ? new Date(r.createdAt).toLocaleString('fr-FR') : undefined,
+      };
+    }
+
+    async function loadRequests() {
+      try {
+        const [inbox, sent] = await Promise.all([
+          apiRequest('/api/exchange-requests/inbox'),
+          apiRequest('/api/exchange-requests/sent'),
+        ]);
+
+        setRequests(inbox.filter((r) => r.status === 'pending').map((r) => mapRequest(r, 'pending')));
+        setAcceptedList(inbox.filter((r) => r.status === 'accepted').map((r) => mapRequest(r, 'accepted')));
+        setSentList(sent.filter((r) => r.status === 'accepted').map((r) => mapRequest(r, 'sent')));
+      } catch {
+        setRequests(INITIAL_REQUESTS);
+        setAcceptedList(ACCEPTED_REQUESTS);
+        setSentList(SENT_ACCEPTED);
+      }
+    }
+
+    loadRequests();
+  }, []);
 
   const pendingCount = requests.length;
 
   const handleAccept = (id) => {
     const req = requests.find(r => r.id === id);
     if (!req) return;
-    setRequests(prev => prev.filter(r => r.id !== id));
-    setAcceptedList(prev => [...prev, {
-      ...req,
-      tab: 'accepted',
-      status: 'accepted',
-      acceptedDate: "Aujourd'hui",
-    }]);
+    apiRequest(`/api/exchange-requests/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'accepted' }),
+    }).then(() => {
+      setRequests(prev => prev.filter(r => r.id !== id));
+      setAcceptedList(prev => [...prev, {
+        ...req,
+        tab: 'accepted',
+        status: 'accepted',
+        acceptedDate: "Aujourd'hui",
+      }]);
+    }).catch((error) => {
+      alert(error.message || 'Impossible d\'accepter la demande');
+    });
   };
 
   const handleRefuse = (id) => {
-    setRequests(prev => prev.filter(r => r.id !== id));
+    apiRequest(`/api/exchange-requests/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'rejected' }),
+    }).then(() => {
+      setRequests(prev => prev.filter(r => r.id !== id));
+    }).catch((error) => {
+      alert(error.message || 'Impossible de refuser la demande');
+    });
   };
 
   const tabs = [
@@ -335,7 +417,10 @@ export default function ExchangeRequests() {
         <header className="bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between sticky top-0 z-20">
           <div />
           <div className="flex items-center gap-3">
-            <button className="relative w-9 h-9 rounded-xl bg-gray-50 hover:bg-gray-100 flex items-center justify-center border border-gray-200">
+            <button
+              onClick={() => navigate('/exchange-requests')}
+              className="relative w-9 h-9 rounded-xl bg-gray-50 hover:bg-gray-100 flex items-center justify-center border border-gray-200"
+            >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5 text-gray-500">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
               </svg>
@@ -343,13 +428,16 @@ export default function ExchangeRequests() {
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">{pendingCount}</span>
               )}
             </button>
-            <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => navigate('/profile')}
+              className="flex items-center gap-2.5 rounded-xl px-2 py-1 hover:bg-gray-50 transition-colors"
+            >
               <div className="w-9 h-9 rounded-xl bg-teal-500 flex items-center justify-center text-white font-bold text-sm">A</div>
               <div>
                 <p className="text-sm font-semibold text-gray-800 leading-none">Admin</p>
                 <p className="text-xs text-teal-600 mt-0.5">Pharmacie</p>
               </div>
-            </div>
+            </button>
           </div>
         </header>
 

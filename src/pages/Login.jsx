@@ -1,16 +1,40 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { apiRequest, setAuthSession } from '../lib/api';
 
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  function handleLogin(e) {
+  React.useEffect(() => {
+    if (location.state?.message) {
+      setInfo(location.state.message);
+    }
+  }, [location.state]);
+
+  async function handleLogin(e) {
     e.preventDefault();
-    console.log('Login:', { email, password, rememberMe });
-    navigate('/dashboard');
+    setError('');
+    setInfo('');
+    setLoading(true);
+    try {
+      const data = await apiRequest('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      setAuthSession(data.token, data.user);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.message || 'Connexion échouée');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -34,6 +58,16 @@ function Login() {
 
           
           <form onSubmit={handleLogin} className="space-y-5">
+            {error && (
+              <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                {error}
+              </div>
+            )}
+            {info && (
+              <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                {info}
+              </div>
+            )}
             
             
             <div>
@@ -60,7 +94,7 @@ function Login() {
                 required
               />
             </div>
-µ
+
             <div className="flex items-center justify-between pt-2">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input 
@@ -71,7 +105,7 @@ function Login() {
                 />
                 <span className="text-gray-600 text-sm">Se souvenir de moi</span>
               </label>
-              <Link to="#" className="text-teal-600 hover:text-teal-700 text-sm font-medium">
+              <Link to="/forgot-password" className="text-teal-600 hover:text-teal-700 text-sm font-medium">
                 Mot de passe oublié ?
               </Link>
             </div>
@@ -79,9 +113,10 @@ function Login() {
             
             <button 
               type="submit"
-              className="w-full bg-yellow-400 text-black py-3 rounded-lg font-bold hover:bg-yellow-500 transition mt-8"
+              disabled={loading}
+              className={`w-full bg-yellow-400 text-black py-3 rounded-lg font-bold hover:bg-yellow-500 transition mt-8 ${loading ? 'opacity-60 cursor-not-allowed' : ''}`}
             >
-              Se connecter
+              {loading ? 'Connexion...' : 'Se connecter'}
             </button>
           </form>
 

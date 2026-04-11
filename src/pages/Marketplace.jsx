@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { apiRequest, clearAuthSession } from '../lib/api';
 
 // ── Nav Items (shared with Dashboard) ─────────────────────────────────────────
 const navItems = [
@@ -21,24 +22,14 @@ const navItems = [
   },
 ];
 
-// ── Mock Data ──────────────────────────────────────────────────────────────────
-const ALL_LISTINGS = [
-  { id: 1, name: 'Paracétamol 500mg', category: 'Analgésique', type: 'offre', qty: 2000, unit: 'unités', price: 1200, wilaya: 'Alger', owner: 'Pharmacie El Nour', ownerType: 'pharmacie', expiry: '2026-08', urgency: null, image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&h=200&fit=crop' },
-  { id: 2, name: 'Amoxicilline 1g', category: 'Antibiotique', type: 'demande', qty: 500, unit: 'boîtes', price: null, wilaya: 'Oran', owner: 'Hôpital Ibn Sina', ownerType: 'hopital', expiry: null, urgency: 'urgent', image: 'https://images.unsplash.com/photo-1550572017-edd951b55104?w=300&h=200&fit=crop' },
-  { id: 3, name: 'Insuline Glargine 100UI', category: 'Diabétologie', type: 'offre', qty: 150, unit: 'stylos', price: 45000, wilaya: 'Constantine', owner: 'Labo Saidal', ownerType: 'labo', expiry: '2025-12', urgency: null, image: 'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?w=300&h=200&fit=crop' },
-  { id: 4, name: 'Metformine 850mg', category: 'Diabétologie', type: 'demande', qty: 300, unit: 'boîtes', price: null, wilaya: 'Annaba', owner: 'Clinique Tafat', ownerType: 'hopital', expiry: null, urgency: 'critique', image: 'https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=300&h=200&fit=crop' },
-  { id: 5, name: 'Doliprane 1g', category: 'Analgésique', type: 'offre', qty: 800, unit: 'boîtes', price: 950, wilaya: 'Blida', owner: 'Pharmacie Centrale', ownerType: 'pharmacie', expiry: '2026-06', urgency: null, image: 'https://images.unsplash.com/photo-1607619662634-3ac55ec0e216?w=300&h=200&fit=crop' },
-  { id: 6, name: 'Augmentin 1g', category: 'Antibiotique', type: 'offre', qty: 200, unit: 'boîtes', price: 3200, wilaya: 'Sétif', owner: 'Labo Biopharm', ownerType: 'labo', expiry: '2026-03', urgency: null, image: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=300&h=200&fit=crop' },
-  { id: 7, name: 'Voltarène Gel 1%', category: 'Anti-inflammatoire', type: 'demande', qty: 100, unit: 'tubes', price: null, wilaya: 'Tizi Ouzou', owner: 'Pharmacie Ibn Khaldoun', ownerType: 'pharmacie', expiry: null, urgency: 'urgent', image: 'https://images.unsplash.com/photo-1576671081837-49000212a370?w=300&h=200&fit=crop' },
-  { id: 8, name: 'Oméprazole 20mg', category: 'Gastro-entérologie', type: 'offre', qty: 1500, unit: 'gélules', price: 800, wilaya: 'Alger', owner: 'Pharmacie Bab El Oued', ownerType: 'pharmacie', expiry: '2026-09', urgency: null, image: 'https://images.unsplash.com/photo-1563213126-a4273aed2016?w=300&h=200&fit=crop' },
-  { id: 9, name: 'Ciprofloxacine 500mg', category: 'Antibiotique', type: 'demande', qty: 400, unit: 'comprimés', price: null, wilaya: 'Oran', owner: 'Hôpital Canastel', ownerType: 'hopital', expiry: null, urgency: null, image: 'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=300&h=200&fit=crop' },
-  { id: 10, name: 'Salbutamol 100mcg', category: 'Pneumologie', type: 'offre', qty: 60, unit: 'inhalateurs', price: 5500, wilaya: 'Batna', owner: 'Pharmacie El Shifa', ownerType: 'pharmacie', expiry: '2026-05', urgency: null, image: 'https://images.unsplash.com/photo-1516574187841-cb9cc2ca948b?w=300&h=200&fit=crop' },
-  { id: 11, name: 'Furosémide 40mg', category: 'Cardiologie', type: 'demande', qty: 600, unit: 'comprimés', price: null, wilaya: 'Constantine', owner: 'CHU Constantine', ownerType: 'hopital', expiry: null, urgency: 'urgent', image: 'https://images.unsplash.com/photo-1628771065518-0d82f1938462?w=300&h=200&fit=crop' },
-  { id: 12, name: 'Atorvastatine 40mg', category: 'Cardiologie', type: 'offre', qty: 900, unit: 'comprimés', price: 2100, wilaya: 'Blida', owner: 'Labo Saidal', ownerType: 'labo', expiry: '2027-01', urgency: null, image: 'https://images.unsplash.com/photo-1542736667-069246bdbc6d?w=300&h=200&fit=crop' },
+const ALGERIA_WILAYAS = [
+  'Adrar', 'Chlef', 'Laghouat', 'Oum El Bouaghi', 'Batna', 'Bejaia', 'Biskra', 'Bechar', 'Blida', 'Bouira',
+  'Tamanrasset', 'Tebessa', 'Tlemcen', 'Tiaret', 'Tizi Ouzou', 'Alger', 'Djelfa', 'Jijel', 'Setif', 'Saida',
+  'Skikda', 'Sidi Bel Abbes', 'Annaba', 'Guelma', 'Constantine', 'Medea', 'Mostaganem', 'Msila', 'Mascara', 'Ouargla',
+  'Oran', 'El Bayadh', 'Illizi', 'Bordj Bou Arreridj', 'Boumerdes', 'El Tarf', 'Tindouf', 'Tissemsilt', 'El Oued', 'Khenchela',
+  'Souk Ahras', 'Tipaza', 'Mila', 'Ain Defla', 'Naama', 'Ain Temouchent', 'Ghardaia', 'Relizane', 'El Mghair', 'El Meniaa',
+  'Ouled Djellal', 'Bordj Baji Mokhtar', 'Beni Abbes', 'Timimoun', 'Touggourt', 'Djanet', 'In Salah', 'In Guezzam',
 ];
-
-const CATEGORIES = ['Tous', 'Analgésique', 'Antibiotique', 'Diabétologie', 'Anti-inflammatoire', 'Gastro-entérologie', 'Pneumologie', 'Cardiologie'];
-const WILAYAS = ['Toutes', 'Alger', 'Oran', 'Constantine', 'Annaba', 'Blida', 'Sétif', 'Tizi Ouzou', 'Batna'];
 const OWNER_TYPES = ['Tous', 'pharmacie', 'hopital', 'labo'];
 
 const ownerTypeLabel = { pharmacie: 'Pharmacie', hopital: 'Hôpital', labo: 'Laboratoire' };
@@ -48,6 +39,21 @@ const ownerTypeColor = {
   labo: 'bg-amber-50 text-amber-700 border-amber-200',
 };
 const ownerTypeDot = { pharmacie: 'bg-teal-500', hopital: 'bg-blue-500', labo: 'bg-amber-500' };
+
+function normalizeText(value) {
+  return (value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeWilayaName(rawWilaya) {
+  const normalized = normalizeText(rawWilaya);
+  const matched = ALGERIA_WILAYAS.find((wilaya) => normalizeText(wilaya) === normalized);
+  return matched || rawWilaya || 'N/A';
+}
 
 // ── Sidebar ────────────────────────────────────────────────────────────────────
 function Sidebar({ activePath }) {
@@ -84,7 +90,7 @@ function Sidebar({ activePath }) {
             <p className="text-sm font-semibold text-gray-800 truncate">Admin</p>
             <p className="text-xs text-teal-600">Pharmacie</p>
           </div>
-          <button onClick={() => navigate('/login')} title="Déconnexion" className="text-gray-400 hover:text-red-400 transition-colors">
+          <button onClick={() => { clearAuthSession(); navigate('/login'); }} title="Déconnexion" className="text-gray-400 hover:text-red-400 transition-colors">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
             </svg>
@@ -98,11 +104,73 @@ function Sidebar({ activePath }) {
 // ── Listing Card ───────────────────────────────────────────────────────────────
 function ListingCard({ item, onContact }) {
   const isOffer = item.type === 'offre';
+  const isDemand = item.type === 'demande';
   const urgencyStyle = item.urgency === 'critique'
     ? 'bg-red-100 text-red-600'
     : item.urgency === 'urgent'
     ? 'bg-amber-100 text-amber-600'
     : null;
+
+  if (isDemand) {
+    return (
+      <div className="rounded-3xl border border-orange-200 bg-gradient-to-br from-white via-orange-50/60 to-rose-50 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col group">
+        <div className="px-4 py-3 border-b border-orange-100 bg-gradient-to-r from-orange-500 to-rose-500 text-white flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+            </span>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-orange-100">Demande d'echange</p>
+              <p className="text-sm font-semibold leading-tight">{item.category}</p>
+            </div>
+          </div>
+          {item.urgency && (
+            <span className={`text-[11px] font-bold px-2 py-1 rounded-full capitalize ${urgencyStyle}`}>
+              {item.urgency}
+            </span>
+          )}
+        </div>
+
+        <div className="p-4 flex-1 flex flex-col">
+          <h3 className="font-bold text-gray-900 text-[15px] leading-tight mb-3">{item.name}</h3>
+
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <div className="rounded-xl border border-orange-100 bg-white p-2.5">
+              <p className="text-[11px] text-gray-400 uppercase tracking-wide">Quantite</p>
+              <p className="text-sm font-semibold text-gray-800">{item.qty.toLocaleString()} {item.unit}</p>
+            </div>
+            <div className="rounded-xl border border-orange-100 bg-white p-2.5">
+              <p className="text-[11px] text-gray-400 uppercase tracking-wide">Localisation</p>
+              <p className="text-sm font-semibold text-gray-800">{item.wilaya}</p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-orange-100 bg-white px-3 py-2.5 mb-3">
+            <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Etablissement</p>
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${ownerTypeDot[item.ownerType]}`} />
+              <span className="text-sm text-gray-700 truncate">{item.owner}</span>
+              <span className={`ml-auto text-xs font-medium px-2 py-0.5 rounded-full border ${ownerTypeColor[item.ownerType]}`}>
+                {ownerTypeLabel[item.ownerType]}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-auto">
+            <button onClick={() => onContact(item)}
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white text-sm font-semibold py-2.5 rounded-xl transition-all shadow-sm hover:shadow-md">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+              </svg>
+              Proposer un echange
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col group">
@@ -113,17 +181,11 @@ function ListingCard({ item, onContact }) {
           onError={(e) => { e.target.src = 'https://via.placeholder.com/300x200/e5e7eb/9ca3af?text=💊'; }}
         />
         {/* Type badge */}
-        <div className={`absolute top-3 left-3 text-xs font-bold px-2.5 py-1 rounded-full shadow ${isOffer ? 'bg-teal-500 text-white' : 'bg-gray-800 text-white'}`}>
-          {isOffer ? '📦 Offre' : '🔍 Demande'}
+        <div className="absolute top-3 left-3 text-xs font-bold px-2.5 py-1 rounded-full shadow bg-teal-500 text-white">
+          📦 Offre
         </div>
-        {/* Urgency */}
-        {item.urgency && (
-          <div className={`absolute top-3 right-3 text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${urgencyStyle}`}>
-            {item.urgency}
-          </div>
-        )}
         {/* Expiry */}
-        {isOffer && item.expiry && (
+        {item.expiry && (
           <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2 py-0.5 rounded-lg">
             Exp. {item.expiry}
           </div>
@@ -145,7 +207,7 @@ function ListingCard({ item, onContact }) {
             </svg>
             <span className="font-medium text-gray-700">{item.qty.toLocaleString()}</span> {item.unit}
           </div>
-          {isOffer && item.price && (
+          {item.price && (
             <span className="text-sm font-bold text-teal-600">{item.price.toLocaleString()} DA</span>
           )}
         </div>
@@ -186,6 +248,27 @@ function ListingCard({ item, onContact }) {
 // ── Contact Modal ──────────────────────────────────────────────────────────────
 function ContactModal({ item, onClose }) {
   if (!item) return null;
+  const [sending, setSending] = useState(false);
+  const [message, setMessage] = useState(`Bonjour, je suis intéressé par votre ${item.type === 'offre' ? 'offre' : 'demande'} concernant ${item.name} (${item.qty} ${item.unit}). Pouvez-vous me donner plus de détails ?`);
+
+  async function sendRequest() {
+    try {
+      setSending(true);
+      await apiRequest('/api/exchange-requests', {
+        method: 'POST',
+        body: JSON.stringify({
+          listingId: item.id,
+          message,
+        }),
+      });
+      onClose();
+    } catch (error) {
+      alert(error.message || "Impossible d'envoyer la demande");
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
@@ -212,11 +295,12 @@ function ContactModal({ item, onClose }) {
             <textarea
               className="w-full border border-gray-200 rounded-xl p-3 text-sm text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
               rows={4}
-              defaultValue={`Bonjour, je suis intéressé par votre ${item.type === 'offre' ? 'offre' : 'demande'} concernant ${item.name} (${item.qty} ${item.unit}). Pouvez-vous me donner plus de détails ?`}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
             />
           </div>
-          <button className="w-full bg-teal-500 hover:bg-teal-600 text-white font-medium py-2.5 rounded-xl text-sm transition-colors shadow-sm">
-            Envoyer la demande d'échange
+          <button onClick={sendRequest} disabled={sending} className={`w-full bg-teal-500 hover:bg-teal-600 text-white font-medium py-2.5 rounded-xl text-sm transition-colors shadow-sm ${sending ? 'opacity-60 cursor-not-allowed' : ''}`}>
+            {sending ? 'Envoi...' : "Envoyer la demande d'échange"}
           </button>
           <button onClick={onClose} className="w-full bg-gray-50 hover:bg-gray-100 text-gray-600 font-medium py-2.5 rounded-xl text-sm transition-colors border border-gray-200">
             Annuler
@@ -229,7 +313,9 @@ function ContactModal({ item, onClose }) {
 
 // ── Main Marketplace ───────────────────────────────────────────────────────────
 export default function Marketplace() {
-  const [search, setSearch] = useState('');
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get('search') || '');
   const [typeFilter, setTypeFilter] = useState('tous'); // 'tous' | 'offre' | 'demande'
   const [categoryFilter, setCategoryFilter] = useState('Tous');
   const [wilayaFilter, setWilayaFilter] = useState('Toutes');
@@ -238,28 +324,118 @@ export default function Marketplace() {
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
   const [sortBy, setSortBy] = useState('recent');
   const [contactItem, setContactItem] = useState(null);
+  const [allListings, setAllListings] = useState([]);
+  const [isLoadingListings, setIsLoadingListings] = useState(true);
+  const [listingsError, setListingsError] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  const listingsCacheRef = useRef(new Map());
 
-  const filtered = useMemo(() => {
-    let result = ALL_LISTINGS;
-    if (typeFilter !== 'tous') result = result.filter(i => i.type === typeFilter);
-    if (categoryFilter !== 'Tous') result = result.filter(i => i.category === categoryFilter);
-    if (wilayaFilter !== 'Toutes') result = result.filter(i => i.wilaya === wilayaFilter);
-    if (ownerFilter !== 'Tous') result = result.filter(i => i.ownerType === ownerFilter);
-    if (urgencyOnly) result = result.filter(i => i.urgency);
-    if (search.trim()) result = result.filter(i =>
-      i.name.toLowerCase().includes(search.toLowerCase()) ||
-      i.owner.toLowerCase().includes(search.toLowerCase()) ||
-      i.category.toLowerCase().includes(search.toLowerCase())
-    );
-    if (sortBy === 'price_asc') result = [...result].sort((a, b) => (a.price || 0) - (b.price || 0));
-    if (sortBy === 'price_desc') result = [...result].sort((a, b) => (b.price || 0) - (a.price || 0));
-    if (sortBy === 'qty_desc') result = [...result].sort((a, b) => b.qty - a.qty);
-    return result;
-  }, [search, typeFilter, categoryFilter, wilayaFilter, ownerFilter, urgencyOnly, sortBy]);
+  const categoryOptions = useMemo(() => {
+    const values = Array.from(new Set(allListings.map((item) => item.category).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'fr'));
+    return ['Tous', ...values];
+  }, [allListings]);
 
-  const offresCount = ALL_LISTINGS.filter(i => i.type === 'offre').length;
-  const demandesCount = ALL_LISTINGS.filter(i => i.type === 'demande').length;
-  const urgentCount = ALL_LISTINGS.filter(i => i.urgency).length;
+  const wilayaStats = useMemo(() => {
+    const counts = new Map();
+    allListings.forEach((item) => {
+      const name = normalizeWilayaName(item.wilaya);
+      if (!ALGERIA_WILAYAS.includes(name)) return;
+      counts.set(name, (counts.get(name) || 0) + 1);
+    });
+    return counts;
+  }, [allListings]);
+
+  useEffect(() => {
+    const nextSearch = searchParams.get('search') || '';
+    setSearch(nextSearch);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const current = searchParams.get('search') || '';
+    if (current === search) return;
+
+    const nextParams = new URLSearchParams(searchParams);
+    if (search.trim()) {
+      nextParams.set('search', search.trim());
+    } else {
+      nextParams.delete('search');
+    }
+    setSearchParams(nextParams, { replace: true });
+  }, [search, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 350);
+
+    return () => clearTimeout(timeoutId);
+  }, [search]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadListings() {
+      const params = new URLSearchParams();
+      if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
+      if (typeFilter !== 'tous') params.set('type', typeFilter);
+      if (categoryFilter !== 'Tous') params.set('category', categoryFilter);
+      if (wilayaFilter !== 'Toutes') params.set('wilaya', wilayaFilter);
+      if (ownerFilter !== 'Tous') params.set('ownerType', ownerFilter);
+      if (urgencyOnly) params.set('urgentOnly', 'true');
+      if (sortBy !== 'recent') params.set('sort', sortBy);
+      const queryString = params.toString();
+
+      try {
+        setIsLoadingListings(true);
+        setListingsError('');
+
+        if (listingsCacheRef.current.has(queryString)) {
+          setAllListings(listingsCacheRef.current.get(queryString));
+          setIsLoadingListings(false);
+          return;
+        }
+
+        const rows = await apiRequest(`/api/listings${queryString ? `?${queryString}` : ''}`, { signal: controller.signal });
+        const mapped = rows.map((r) => ({
+          id: r.id,
+          name: r.title,
+          category: r.category,
+          type: r.type,
+          qty: r.quantity,
+          unit: r.unit,
+          price: r.priceDa,
+          wilaya: normalizeWilayaName(r.wilaya || r.owner?.wilaya),
+          owner: r.owner?.establishmentName || r.owner?.fullName || r.owner?.email || 'N/A',
+          ownerType: r.owner?.establishmentType || 'pharmacie',
+          expiry: null,
+          urgency: r.urgency,
+          image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&h=200&fit=crop',
+        }));
+        listingsCacheRef.current.set(queryString, mapped);
+        setAllListings(mapped);
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+        setAllListings([]);
+        setListingsError(error.message || 'Impossible de charger les produits depuis la base de donnees.');
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoadingListings(false);
+        }
+      }
+    }
+
+    loadListings();
+    return () => {
+      controller.abort();
+    };
+  }, [debouncedSearch, typeFilter, categoryFilter, wilayaFilter, ownerFilter, urgencyOnly, sortBy]);
+
+  const filtered = allListings;
+
+  const offresCount = allListings.filter(i => i.type === 'offre').length;
+  const demandesCount = allListings.filter(i => i.type === 'demande').length;
+  const urgentCount = allListings.filter(i => i.urgency).length;
+  const typeFilterLabel = typeFilter === 'offre' ? 'Offres' : typeFilter === 'demande' ? 'Demandes' : 'Tous';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -281,118 +457,135 @@ export default function Marketplace() {
               Nouvelle annonce
             </Link>
             {/* Notification */}
-            <button className="relative w-9 h-9 rounded-xl bg-gray-50 hover:bg-gray-100 flex items-center justify-center border border-gray-200">
+            <button
+              onClick={() => navigate('/exchange-requests')}
+              className="relative w-9 h-9 rounded-xl bg-gray-50 hover:bg-gray-100 flex items-center justify-center border border-gray-200"
+            >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5 text-gray-500">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
               </svg>
               <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">3</span>
             </button>
-            <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => navigate('/profile')}
+              className="flex items-center gap-2.5 rounded-xl px-2 py-1 hover:bg-gray-50 transition-colors"
+            >
               <div className="w-9 h-9 rounded-xl bg-teal-500 flex items-center justify-center text-white font-bold text-sm">A</div>
               <div>
                 <p className="text-sm font-semibold text-gray-800 leading-none">Admin</p>
                 <p className="text-xs text-teal-600 mt-0.5">Pharmacie</p>
               </div>
-            </div>
+            </button>
           </div>
         </header>
 
-        <div className="flex flex-1">
-          {/* ── Filters Panel ── */}
-          <aside className="w-56 flex-shrink-0 bg-white border-r border-gray-100 p-4 space-y-5 sticky top-[73px] h-[calc(100vh-73px)] overflow-y-auto">
-            {/* Summary chips */}
-            <div className="space-y-1.5">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Résumé</p>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-500">Offres</span>
-                <span className="font-semibold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">{offresCount}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-500">Demandes</span>
-                <span className="font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-full">{demandesCount}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-500">Urgents</span>
-                <span className="font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">{urgentCount}</span>
-              </div>
+        <div className="flex-1 p-6">
+          {listingsError && (
+            <div className="mb-5 rounded-xl border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm">
+              {listingsError}
             </div>
+          )}
 
-            <hr className="border-gray-100" />
-
-            {/* Type */}
-            <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Type</p>
-              <div className="space-y-1">
-                {[{ val: 'tous', label: 'Tous' }, { val: 'offre', label: '📦 Offres' }, { val: 'demande', label: '🔍 Demandes' }].map(t => (
-                  <button key={t.val} onClick={() => setTypeFilter(t.val)}
-                    className={`w-full text-left text-sm px-3 py-1.5 rounded-lg transition-colors ${typeFilter === t.val ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}>
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <hr className="border-gray-100" />
-
-            {/* Category */}
-            <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Catégorie</p>
-              <div className="space-y-1">
-                {CATEGORIES.map(c => (
-                  <button key={c} onClick={() => setCategoryFilter(c)}
-                    className={`w-full text-left text-sm px-3 py-1.5 rounded-lg transition-colors ${categoryFilter === c ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}>
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <hr className="border-gray-100" />
-
-            {/* Wilaya */}
-            <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Wilaya</p>
-              <select value={wilayaFilter} onChange={e => setWilayaFilter(e.target.value)}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-700 bg-white">
-                {WILAYAS.map(w => <option key={w}>{w}</option>)}
-              </select>
-            </div>
-
-            <hr className="border-gray-100" />
-
-            {/* Owner type */}
-            <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Établissement</p>
-              <div className="space-y-1">
-                {OWNER_TYPES.map(o => (
-                  <button key={o} onClick={() => setOwnerFilter(o)}
-                    className={`w-full text-left text-sm px-3 py-1.5 rounded-lg transition-colors capitalize ${ownerFilter === o ? 'bg-teal-50 text-teal-700 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}>
-                    {o === 'Tous' ? 'Tous' : ownerTypeLabel[o]}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <hr className="border-gray-100" />
-
-            {/* Urgency toggle */}
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-gray-600">Urgents seulement</p>
-              <button onClick={() => setUrgencyOnly(v => !v)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${urgencyOnly ? 'bg-teal-500' : 'bg-gray-200'}`}>
-                <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${urgencyOnly ? 'translate-x-5' : 'translate-x-0.5'}`} />
+          {/* ── Professional Top Filters ── */}
+          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm mb-5 space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide mr-1">Résumé</span>
+              <span className="text-xs font-semibold text-teal-600 bg-teal-50 px-2.5 py-1 rounded-full">Offres: {offresCount}</span>
+              <span className="text-xs font-semibold text-gray-700 bg-gray-100 px-2.5 py-1 rounded-full">Demandes: {demandesCount}</span>
+              <span className="text-xs font-semibold text-red-600 bg-red-50 px-2.5 py-1 rounded-full">Urgents: {urgentCount}</span>
+              <button
+                onClick={() => {
+                  setSearch('');
+                  setTypeFilter('tous');
+                  setCategoryFilter('Tous');
+                  setWilayaFilter('Toutes');
+                  setOwnerFilter('Tous');
+                  setUrgencyOnly(false);
+                }}
+                className="ml-auto text-xs text-gray-500 hover:text-red-500 border border-gray-200 hover:border-red-200 px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Réinitialiser
               </button>
             </div>
 
-            {/* Reset */}
-            <button onClick={() => { setSearch(''); setTypeFilter('tous'); setCategoryFilter('Tous'); setWilayaFilter('Toutes'); setOwnerFilter('Tous'); setUrgencyOnly(false); }}
-              className="w-full text-xs text-gray-400 hover:text-red-400 transition-colors py-1 border border-dashed border-gray-200 rounded-lg hover:border-red-200">
-              Réinitialiser les filtres
-            </button>
-          </aside>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-gray-500">Type</span>
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                >
+                  <option value="tous">Tous</option>
+                  <option value="offre">Offres</option>
+                  <option value="demande">Demandes</option>
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-gray-500">Catégorie</span>
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                >
+                  {categoryOptions.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-gray-500">Wilaya</span>
+                <select
+                  value={wilayaFilter}
+                  onChange={(e) => setWilayaFilter(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                >
+                  <option value="Toutes">Toutes</option>
+                  {ALGERIA_WILAYAS.map((w) => (
+                    <option key={w} value={w}>{w}{wilayaStats.get(w) ? ` (${wilayaStats.get(w)})` : ''}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-gray-500">Établissement</span>
+                <select
+                  value={ownerFilter}
+                  onChange={(e) => setOwnerFilter(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                >
+                  {OWNER_TYPES.map((o) => (
+                    <option key={o} value={o}>{o === 'Tous' ? 'Tous' : ownerTypeLabel[o]}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
+                <p className="text-sm font-medium text-gray-600">Niveau d'urgence</p>
+                <div className="flex items-center rounded-lg border border-gray-200 bg-white overflow-hidden">
+                  <button
+                    onClick={() => setUrgencyOnly(false)}
+                    className={`px-3 py-1.5 text-xs font-semibold transition-colors ${!urgencyOnly ? 'bg-teal-500 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    Tous
+                  </button>
+                  <button
+                    onClick={() => setUrgencyOnly(true)}
+                    className={`px-3 py-1.5 text-xs font-semibold transition-colors ${urgencyOnly ? 'bg-red-500 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    Urgents seulement
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* ── Main Content ── */}
-          <div className="flex-1 p-6">
+          <div>
             {/* Search + sort bar */}
             <div className="flex items-center gap-3 mb-5">
               <div className="relative flex-1">
@@ -430,14 +623,14 @@ export default function Marketplace() {
             </div>
 
             {/* Results count */}
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex flex-wrap items-center gap-2 mb-4">
               <span className="text-sm text-gray-500">
                 <span className="font-semibold text-gray-800">{filtered.length}</span> résultat{filtered.length !== 1 ? 's' : ''}
               </span>
               {/* Active filters */}
               {typeFilter !== 'tous' && (
                 <span className="text-xs bg-teal-50 text-teal-700 px-2.5 py-1 rounded-full font-medium flex items-center gap-1">
-                  {typeFilter}
+                  {typeFilterLabel}
                   <button onClick={() => setTypeFilter('tous')} className="hover:text-red-500">×</button>
                 </span>
               )}
@@ -445,6 +638,18 @@ export default function Marketplace() {
                 <span className="text-xs bg-teal-50 text-teal-700 px-2.5 py-1 rounded-full font-medium flex items-center gap-1">
                   {categoryFilter}
                   <button onClick={() => setCategoryFilter('Tous')} className="hover:text-red-500">×</button>
+                </span>
+              )}
+              {wilayaFilter !== 'Toutes' && (
+                <span className="text-xs bg-teal-50 text-teal-700 px-2.5 py-1 rounded-full font-medium flex items-center gap-1">
+                  {wilayaFilter}
+                  <button onClick={() => setWilayaFilter('Toutes')} className="hover:text-red-500">×</button>
+                </span>
+              )}
+              {ownerFilter !== 'Tous' && (
+                <span className="text-xs bg-teal-50 text-teal-700 px-2.5 py-1 rounded-full font-medium flex items-center gap-1">
+                  {ownerTypeLabel[ownerFilter]}
+                  <button onClick={() => setOwnerFilter('Tous')} className="hover:text-red-500">×</button>
                 </span>
               )}
               {urgencyOnly && (
@@ -456,7 +661,12 @@ export default function Marketplace() {
             </div>
 
             {/* Grid or List */}
-            {filtered.length === 0 ? (
+            {isLoadingListings ? (
+              <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+                <div className="w-8 h-8 border-2 border-teal-200 border-t-teal-600 rounded-full animate-spin mb-3" />
+                <p className="font-medium">Chargement des produits depuis la base de donnees...</p>
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64 text-gray-400">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-12 h-12 mb-3 text-gray-300">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
@@ -472,15 +682,17 @@ export default function Marketplace() {
               </div>
             ) : (
               <div className="space-y-3">
-                {filtered.map(item => (
-                  <div key={item.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow p-4 flex items-center gap-4">
+                {filtered.map(item => {
+                  const isDemand = item.type === 'demande';
+                  return (
+                  <div key={item.id} className={`rounded-2xl border shadow-sm hover:shadow-md transition-shadow p-4 flex items-center gap-4 ${isDemand ? 'bg-gradient-to-r from-orange-50 to-rose-50 border-orange-200' : 'bg-white border-gray-100'}`}>
                     <img src={item.image} alt={item.name}
                       className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
                       onError={(e) => { e.target.src = 'https://via.placeholder.com/64x64/e5e7eb/9ca3af?text=💊'; }} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <h3 className="font-semibold text-gray-800 text-sm">{item.name}</h3>
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.type === 'offre' ? 'bg-teal-50 text-teal-700' : 'bg-gray-100 text-gray-600'}`}>
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.type === 'offre' ? 'bg-teal-50 text-teal-700' : 'bg-gradient-to-r from-orange-500 to-rose-500 text-white'}`}>
                           {item.type === 'offre' ? 'Offre' : 'Demande'}
                         </span>
                         {item.urgency && (
@@ -488,6 +700,7 @@ export default function Marketplace() {
                             {item.urgency}
                           </span>
                         )}
+                        {isDemand && <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white border border-orange-200 text-orange-700">Prioritaire</span>}
                       </div>
                       <p className="text-xs text-gray-400 mb-1">{item.category} · {item.wilaya}</p>
                       <p className="text-xs text-gray-600">
@@ -501,15 +714,15 @@ export default function Marketplace() {
                         {item.price && <p className="text-xs text-teal-600 font-medium">{item.price.toLocaleString()} DA</p>}
                       </div>
                       <button onClick={() => setContactItem(item)}
-                        className="flex items-center gap-1.5 bg-teal-500 hover:bg-teal-600 text-white text-xs font-medium px-3 py-2 rounded-xl transition-colors">
+                        className={`flex items-center gap-1.5 text-white text-xs font-medium px-3 py-2 rounded-xl transition-colors ${isDemand ? 'bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600' : 'bg-teal-500 hover:bg-teal-600'}`}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                         </svg>
-                        Contacter
+                        {isDemand ? 'Proposer un echange' : 'Contacter'}
                       </button>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             )}
           </div>

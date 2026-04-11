@@ -1,0 +1,110 @@
+generator client {
+	provider = "prisma-client-js"
+}
+
+datasource db {
+	provider = "postgresql"
+	url      = env("DATABASE_URL")
+}
+
+enum EstablishmentType {
+	pharmacie
+	hopital
+	labo
+}
+
+enum ListingType {
+	offre
+	demande
+}
+
+enum UrgencyLevel {
+	normal
+	urgent
+	critique
+}
+
+enum RequestStatus {
+	pending
+	accepted
+	rejected
+}
+
+enum UserRole {
+	usersimple
+	administrator
+}
+
+enum UserApprovalStatus {
+	pending
+	approved
+	rejected
+}
+
+model User {
+	id           String            @id @default(cuid())
+	email        String            @unique
+	passwordHash String
+	role         UserRole          @default(usersimple)
+	approvalStatus UserApprovalStatus @default(pending)
+	approvedAt   DateTime?
+	createdAt    DateTime          @default(now())
+	profile      Profile?
+	listings     Listing[]
+	requests     ExchangeRequest[] @relation("RequesterRequests")
+}
+
+model Profile {
+	id                String            @id @default(cuid())
+	userId            String            @unique
+	fullName          String
+	establishmentName String
+	establishmentType EstablishmentType
+	certificateFileName String?
+	certificateFileData String?
+	certificateMimeType String?
+	phone             String?
+	wilaya            String?
+	address           String?
+	avatarUrl         String?
+	updatedAt         DateTime          @updatedAt
+	user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Listing {
+	id        String            @id @default(cuid())
+	userId    String
+	title     String
+	category  String
+	type      ListingType
+	quantity  Int
+	unit      String
+	priceDa   Int?
+	urgency   UrgencyLevel      @default(normal)
+	wilaya    String?
+	notes     String?
+	status    String            @default("active")
+	createdAt DateTime          @default(now())
+	user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+	requests  ExchangeRequest[]
+}
+
+model ExchangeRequest {
+	id              String        @id @default(cuid())
+	listingId       String
+	requesterUserId String
+	message         String?
+	status          RequestStatus @default(pending)
+	createdAt       DateTime      @default(now())
+	listing         Listing       @relation(fields: [listingId], references: [id], onDelete: Cascade)
+	requester       User          @relation("RequesterRequests", fields: [requesterUserId], references: [id], onDelete: Cascade)
+}
+
+model PasswordReset {
+	id        String   @id @default(cuid())
+	userId    String
+	tokenHash String
+	expiresAt DateTime
+	usedAt    DateTime?
+}
+

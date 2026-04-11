@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { apiRequest, getAuthUser } from '../lib/api';
 
 // ── Mock Data ──────────────────────────────────────────────────────────────────
 const urgentDeclarations = [
@@ -277,7 +278,57 @@ function ExchangeRow({ exchange }) {
 
 // ── Main Dashboard ─────────────────────────────────────────────────────────────
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [notifications] = useState(3);
+  const [currentUser] = useState(() => getAuthUser());
+  const [pendingUsers, setPendingUsers] = useState([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [pendingError, setPendingError] = useState('');
+  const isAdmin = currentUser?.role === 'administrator';
+
+  useEffect(() => {
+    if (isAdmin) {
+      navigate('/admin', { replace: true });
+    }
+  }, [isAdmin, navigate]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    let isMounted = true;
+
+    async function loadPendingUsers() {
+      try {
+        setPendingLoading(true);
+        setPendingError('');
+        const rows = await apiRequest('/api/admin/pending-users');
+        if (isMounted) setPendingUsers(rows);
+      } catch (error) {
+        if (isMounted) {
+          setPendingError(error.message || 'Impossible de charger les comptes en attente');
+        }
+      } finally {
+        if (isMounted) setPendingLoading(false);
+      }
+    }
+
+    loadPendingUsers();
+    return () => {
+      isMounted = false;
+    };
+  }, [isAdmin]);
+
+  async function handleApproval(userId, status) {
+    try {
+      await apiRequest(`/api/admin/users/${userId}/approval`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+      setPendingUsers((prev) => prev.filter((u) => u.id !== userId));
+    } catch (error) {
+      setPendingError(error.message || 'Mise a jour impossible');
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -293,7 +344,10 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-4">
             {/* Notification Bell */}
-            <button className="relative w-9 h-9 rounded-xl bg-gray-50 hover:bg-gray-100 flex items-center justify-center transition-colors border border-gray-200">
+            <button
+              onClick={() => navigate('/exchange-requests')}
+              className="relative w-9 h-9 rounded-xl bg-gray-50 hover:bg-gray-100 flex items-center justify-center transition-colors border border-gray-200"
+            >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5 text-gray-500">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
               </svg>
@@ -304,7 +358,10 @@ export default function Dashboard() {
               )}
             </button>
             {/* Avatar */}
-            <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => navigate('/profile')}
+              className="flex items-center gap-2.5 rounded-xl px-2 py-1 hover:bg-gray-50 transition-colors"
+            >
               <div className="w-9 h-9 rounded-xl bg-teal-500 flex items-center justify-center text-white font-bold text-sm shadow">
                 A
               </div>
@@ -312,11 +369,77 @@ export default function Dashboard() {
                 <p className="text-sm font-semibold text-gray-800 leading-none">Admin</p>
                 <p className="text-xs text-teal-600 mt-0.5">Pharmacie</p>
               </div>
-            </div>
+            </button>
           </div>
         </header>
 
         <div className="px-8 py-6 space-y-6">
+          {isAdmin && (
+            <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                  <h2 className="font-semibold text-gray-800">Validation des nouveaux comptes</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">Un administrateur doit confirmer les nouvelles inscriptions</p>
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
+                  {pendingUsers.length} en attente
+                </span>
+              </div>
+
+              <div className="p-5">
+                {pendingLoading && <p className="text-sm text-gray-500">Chargement...</p>}
+                {pendingError && <p className="text-sm text-red-600">{pendingError}</p>}
+
+                {!pendingLoading && !pendingError && pendingUsers.length === 0 && (
+                  <p className="text-sm text-gray-500">Aucun compte en attente.</p>
+                )}
+
+                {!pendingLoading && pendingUsers.length > 0 && (
+                  <div className="space-y-3">
+                    {pendingUsers.map((user) => (
+                      <div key={user.id} className="border border-gray-100 rounded-xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">{user.profile?.establishmentName || user.profile?.fullName || user.email}</p>
+                          <p className="text-xs text-gray-500">{user.email}</p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Type: {user.profile?.establishmentType || 'N/A'} · Wilaya: {user.profile?.wilaya || 'N/A'}
+                          </p>
+                          {user.profile?.certificateFileData ? (
+                            <a
+                              href={user.profile.certificateFileData}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex mt-2 text-xs text-teal-700 hover:text-teal-800 font-semibold"
+                              download={user.profile?.certificateFileName || 'certificat'}
+                            >
+                              Voir le certificat: {user.profile?.certificateFileName || 'fichier'}
+                            </a>
+                          ) : (
+                            <p className="mt-2 text-xs font-semibold text-red-600">Certificat non fourni</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleApproval(user.id, 'approved')}
+                            className="px-3 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 text-white text-sm font-medium"
+                          >
+                            Approuver
+                          </button>
+                          <button
+                            onClick={() => handleApproval(user.id, 'rejected')}
+                            className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium"
+                          >
+                            Rejeter
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
           {/* Stats Grid */}
           <div className="grid grid-cols-4 gap-4">
             {stats.map((stat, i) => (
@@ -385,6 +508,17 @@ export default function Dashboard() {
                     Voir les demandes
                     <span className="ml-auto w-5 h-5 bg-amber-400 text-white text-xs font-bold rounded-full flex items-center justify-center">3</span>
                   </Link>
+                  {isAdmin && (
+                    <Link
+                      to="/admin"
+                      className="flex items-center gap-3 w-full bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm font-medium px-4 py-3 rounded-xl transition-colors border border-gray-200"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 text-teal-500">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 12h9.75M10.5 18h9.75M3.75 6h.008v.008H3.75V6zm0 6h.008v.008H3.75V12zm0 6h.008v.008H3.75V18z" />
+                      </svg>
+                      Administration
+                    </Link>
+                  )}
                 </div>
               </div>
 

@@ -1,9 +1,19 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { clearAuthSession, getAuthToken, getAuthUser } from '../lib/api';
 
 function Navbar() {
-  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState('');
   const location = useLocation();
+  const navigate = useNavigate();
+  const authToken = getAuthToken();
+  const authUser = getAuthUser();
+  const isLoggedIn = Boolean(authToken && authUser);
+
+  React.useEffect(() => {
+    const query = new URLSearchParams(location.search).get('search') || '';
+    setSearchQuery(query);
+  }, [location.search]);
 
   // Fonction pour scroller vers une section
   const scrollToSection = (id) => {
@@ -13,9 +23,24 @@ function Navbar() {
     }
   };
 
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    const query = searchQuery.trim();
+    if (!query) {
+      navigate('/marketplace');
+      return;
+    }
+    navigate(`/marketplace?search=${encodeURIComponent(query)}`);
+  };
+
+  const handleLogout = () => {
+    clearAuthSession();
+    navigate('/login');
+  };
+
   return (
     <nav className="sticky top-0 z-50 bg-white shadow-sm border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-8 py-4 flex justify-between items-center">
+      <div className="max-w-7xl mx-auto px-8 py-4 flex justify-between items-center gap-4">
         
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 cursor-pointer">
@@ -26,7 +51,7 @@ function Navbar() {
         </Link>
 
         {/* Desktop Links */}
-        <div className="hidden lg:flex items-center gap-8">
+        <div className="hidden xl:flex items-center gap-6">
           
           {/* Accueil - scroll to hero */}
           {location.pathname === '/' ? (
@@ -99,6 +124,24 @@ function Navbar() {
           )}
         </div>
 
+        {/* Global Search */}
+        <form onSubmit={handleSearchSubmit} className="hidden md:flex flex-1 max-w-md items-center gap-2">
+          <div className="relative w-full">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Rechercher un médicament..."
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+          <button type="submit" className="px-3 py-2 text-sm font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition">
+            Chercher
+          </button>
+        </form>
+
         {/* Auth Buttons */}
         <div className="flex items-center gap-3">
           {!isLoggedIn ? (
@@ -112,7 +155,7 @@ function Navbar() {
             </>
           ) : (
             <button 
-              onClick={() => setIsLoggedIn(false)}
+              onClick={handleLogout}
               className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 font-medium transition"
             >
               Déconnexion

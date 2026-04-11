@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { apiRequest, setAuthSession } from '../lib/api';
+
+const MAX_CERTIFICATE_SIZE_BYTES = 5 * 1024 * 1024;
 
 function SignUp() {
   const [userType, setUserType] = useState('pharmacy');
@@ -9,6 +12,8 @@ function SignUp() {
     password: '',
     certificate: null
   });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   function handleInputChange(e) {
@@ -18,13 +23,83 @@ function SignUp() {
 
   function handleFileChange(e) {
     const file = e.target.files[0];
+    if (file && file.size > MAX_CERTIFICATE_SIZE_BYTES) {
+      setError('Le certificat depasse 5MB. Choisissez un fichier plus petit.');
+      setFormData(f => ({ ...f, certificate: null }));
+      return;
+    }
+    setError('');
     setFormData(f => ({ ...f, certificate: file }));
   }
 
-  function handleSignUp(e) {
+  function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Impossible de lire le certificat'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleSignUp(e) {
     e.preventDefault();
-    console.log('SignUp:', { userType, ...formData });
-    navigate('/dashboard');
+    setError('');
+    setLoading(true);
+    const typeMap = {
+      pharmacy: 'pharmacie',
+      hospital: 'hopital',
+      laboratory: 'labo',
+    };
+
+    try {
+      if (!formData.certificate) {
+        setError('Le certificat est obligatoire pour créer un compte.');
+        setLoading(false);
+        return;
+      }
+
+      if (formData.certificate.size > MAX_CERTIFICATE_SIZE_BYTES) {
+        setError('Le certificat depasse 5MB. Choisissez un fichier plus petit.');
+        setLoading(false);
+        return;
+      }
+
+      const certificateData = await readFileAsDataUrl(formData.certificate);
+
+      const data = await apiRequest('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          fullName: formData.name,
+          establishmentName: formData.name,
+          establishmentType: typeMap[userType],
+          certificateFileName: formData.certificate.name,
+          certificateFileData: certificateData,
+          certificateMimeType: formData.certificate.type || 'application/octet-stream',
+        }),
+      });
+
+      if (data.pendingApproval) {
+        navigate('/login', {
+          state: {
+            message: 'Compte cree. Un administrateur doit valider votre compte avant connexion.',
+          },
+        });
+        return;
+      }
+
+      setAuthSession(data.token, data.user);
+      navigate('/dashboard');
+    } catch (err) {
+      if (err.statusCode === 409) {
+        setError(`${err.message || 'Cet email existe deja.'} Essayez de vous connecter.`);
+        return;
+      }
+      setError(err.message || 'Inscription échouée');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -48,6 +123,11 @@ function SignUp() {
 
           {/* Form */}
           <form onSubmit={handleSignUp} className="space-y-6">
+            {error && (
+              <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                {error}
+              </div>
+            )}
             
             {/* User Type Selection */}
             <div>
@@ -180,9 +260,10 @@ function SignUp() {
             {/* Submit Button */}
             <button 
               type="submit"
-              className="w-full bg-yellow-400 text-black py-3 rounded-lg font-bold hover:bg-yellow-500 transition"
+              disabled={loading}
+              className={`w-full bg-yellow-400 text-black py-3 rounded-lg font-bold hover:bg-yellow-500 transition ${loading ? 'opacity-60 cursor-not-allowed' : ''}`}
             >
-              Créer mon compte
+              {loading ? 'Création...' : 'Créer mon compte'}
             </button>
           </form>
 
