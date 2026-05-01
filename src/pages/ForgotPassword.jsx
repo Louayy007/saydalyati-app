@@ -1,13 +1,29 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { apiRequest } from '../lib/api';
 
 function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    setSubmitted(true);
+    setError('');
+    setLoading(true);
+
+    try {
+      await apiRequest('/api/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      });
+      setSubmitted(true);
+    } catch (err) {
+      setError(err.message || 'Une erreur est survenue');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -28,6 +44,11 @@ function ForgotPassword() {
 
           {!submitted ? (
             <form onSubmit={handleSubmit} className="space-y-6">
+              {error && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-800 text-sm">
+                  {error}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-bold text-gray-900 mb-2">Email</label>
                 <input
@@ -37,14 +58,16 @@ function ForgotPassword() {
                   placeholder="votre@email.com"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent bg-gray-50 text-gray-700 placeholder-gray-400"
                   required
+                  disabled={loading}
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-yellow-400 text-black py-3 rounded-lg font-bold hover:bg-yellow-500 transition"
+                disabled={loading}
+                className="w-full bg-yellow-400 text-black py-3 rounded-lg font-bold hover:bg-yellow-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Envoyer le lien
+                {loading ? 'Envoi en cours...' : 'Envoyer le lien'}
               </button>
 
               <Link

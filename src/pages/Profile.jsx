@@ -8,11 +8,11 @@ const navItems = [
     icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>,
   },
   {
-    label: 'Marketplace', path: '/marketplace',
+    label: 'Tableau des échanges', path: '/marketplace',
     icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>,
   },
   {
-    label: 'Déclarer une pénurie', path: '/create-offer',
+    label: 'Nouvelle déclaration', path: '/create-offer',
     icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
   },
   {
@@ -273,7 +273,7 @@ export default function Profile() {
                     <input type="checkbox" checked={form.notifications.urgentRequests} onChange={handleNotificationChange('urgentRequests')} className="w-4 h-4 accent-teal-600" />
                   </label>
                   <label className="flex items-center justify-between gap-2">
-                    <span>Nouvelles annonces marketplace</span>
+                    <span>Nouvelles annonces</span>
                     <input type="checkbox" checked={form.notifications.marketplaceUpdates} onChange={handleNotificationChange('marketplaceUpdates')} className="w-4 h-4 accent-teal-600" />
                   </label>
                   <label className="flex items-center justify-between gap-2">

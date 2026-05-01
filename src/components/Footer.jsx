@@ -23,7 +23,7 @@ function Footer() {
           <div>
             <h4 className="font-bold mb-4">Produit</h4>
             <ul className="space-y-2 text-gray-400 text-sm">
-              <li><a href="#" className="hover:text-white">Marketplace</a></li>
+              <li><a href="#" className="hover:text-white">Tableau des échanges</a></li>
               <li><a href="#" className="hover:text-white">Tableau de bord</a></li>
               <li><a href="#" className="hover:text-white">Demandes</a></li>
             </ul>

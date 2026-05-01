@@ -3,11 +3,11 @@ import { HashRouter as Router, Routes, Route, useLocation, Navigate } from 'reac
 import Navbar from './components/Navbar';
 import { getAuthToken, getAuthUser } from './lib/api';
 
-// Pages
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
 import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Admin from './pages/Admin';
 import Marketplace from './pages/Marketplace';
@@ -17,6 +17,14 @@ import Profile from './pages/Profile';
 
 function AppContent() {
   const location = useLocation();
+
+  // Redirige vers /dashboard si l'utilisateur est déjà connecté
+  function PublicRoute({ children }) {
+    const token = getAuthToken();
+    const user = getAuthUser();
+    const isLoggedIn = token && user && (user.role === 'administrator' || user.approvalStatus === 'approved');
+    return isLoggedIn ? <Navigate to="/dashboard" replace /> : children;
+  }
 
   function ProtectedRoute({ children, adminOnly = false }) {
     const token = getAuthToken();
@@ -38,21 +46,21 @@ function AppContent() {
     return children;
   }
 
-  // Pages sans navbar
-  const noNavbarPages = ['/login', '/signup', '/forgot-password'];
+  const noNavbarPages = ['/login', '/signup', '/forgot-password', '/reset-password'];
   const showNavbar = !noNavbarPages.includes(location.pathname);
 
   return (
     <>
       {showNavbar && <Navbar />}
       <Routes>
-        {/* Public Routes */}
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<SignUp />} />
+        {/* Routes publiques — redirigent vers /dashboard si déjà connecté */}
+        <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
+        <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/signup" element={<PublicRoute><SignUp /></PublicRoute>} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/forgotpassword" element={<ForgotPassword />} />
         <Route path="/mot-de-passe-oublie" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* Protected Routes */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

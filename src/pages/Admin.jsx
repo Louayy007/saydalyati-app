@@ -5,7 +5,7 @@ import { apiRequest, clearAuthSession, getAuthUser } from '../lib/api';
 const navItems = [
   { label: 'Tableau de bord', path: '/dashboard' },
   { label: 'Administration', path: '/admin' },
-  { label: 'Marketplace', path: '/marketplace' },
+  { label: 'Tableau des échanges', path: '/marketplace' },
   { label: 'Demandes', path: '/exchange-requests' },
   { label: 'Mon profil', path: '/profile' },
 ];

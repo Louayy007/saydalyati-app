@@ -1,3 +1,9 @@
+/**
+ * Admin Control Panel Controller
+ * Restricted to administrators only
+ * Handles user approval workflow, user management, and analytics
+ */
+
 const { z } = require('zod');
 const {
   listPendingUsers,
@@ -7,10 +13,18 @@ const {
   getAnalytics,
 } = require('../services/admin.service');
 
+/**
+ * User approval status update validation schema
+ */
 const updateApprovalSchema = z.object({
-  status: z.enum(['approved', 'rejected']),
+  status: z.enum(['approved', 'rejected']), // Approve or reject registration
 });
 
+/**
+ * Get all pending user registrations awaiting admin approval
+ * Only administrators can access this
+ * @route GET /api/admin/pending-users
+ */
 async function getPendingUsers(_req, res) {
   try {
     const users = await listPendingUsers();
@@ -20,12 +34,21 @@ async function getPendingUsers(_req, res) {
   }
 }
 
+/**
+ * Approve or reject a user registration
+ * Only administrators can access this
+ * Changes user's approval status and optionally sets approvedAt timestamp
+ * @route PATCH /api/admin/users/:id/approval
+ * @body {string} status - 'approved' or 'rejected'
+ */
 async function patchUserApproval(req, res) {
   try {
+    // Validate approval status
     const parsed = updateApprovalSchema.parse(req.body);
     const updated = await updateUserApproval(req.params.id, parsed.status);
     return res.json(updated);
   } catch (error) {
+    // Handle validation errors
     if (error.name === 'ZodError') {
       return res.status(400).json({ message: 'Validation failed', issues: error.issues });
     }
@@ -33,6 +56,11 @@ async function patchUserApproval(req, res) {
   }
 }
 
+/**
+ * Get all recent exchange requests
+ * Shows marketplace activity
+ * @route GET /api/admin/exchange-requests
+ */
 async function getExchangeRequests(_req, res) {
   try {
     const rows = await listExchangeRequests();
@@ -42,8 +70,16 @@ async function getExchangeRequests(_req, res) {
   }
 }
 
+/**
+ * Get all users with optional filtering and search
+ * Only returns non-admin users
+ * @route GET /api/admin/users
+ * @query {string} status - Filter by 'pending', 'approved', or 'rejected'
+ * @query {string} search - Search by email, name, or establishment
+ */
 async function getUsers(req, res) {
   try {
+    // Extract query parameters
     const status = typeof req.query.status === 'string' ? req.query.status : undefined;
     const search = typeof req.query.search === 'string' ? req.query.search : undefined;
     const users = await listUsers({ status, search });
@@ -53,6 +89,11 @@ async function getUsers(req, res) {
   }
 }
 
+/**
+ * Get platform analytics and statistics
+ * Shows aggregate data about users, listings, and exchange requests
+ * @route GET /api/admin/analytics
+ */
 async function getAnalyticsSummary(_req, res) {
   try {
     const summary = await getAnalytics();

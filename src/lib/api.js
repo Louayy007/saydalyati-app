@@ -4,7 +4,6 @@ function resolveApiBase() {
     return fromEnv.replace(/\/$/, '');
   }
 
-  // Default to same-origin to support Vite proxy in dev and reverse proxy in prod.
   return '';
 }
 
@@ -20,7 +19,6 @@ function getApiBaseCandidates() {
     const host = window.location.hostname;
     const isLocalhost = host === 'localhost' || host === '127.0.0.1';
 
-    // In local dev, always try same-origin first so Vite proxy can avoid CORS.
     if (isLocalhost) {
       candidates.push('');
 
@@ -76,7 +74,6 @@ export function setAuthSession(token, user) {
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(safeUser));
   } catch {
-    // If storage quota is hit, keep a tiny session object to preserve login flow.
     const minimalUser = safeUser
       ? {
           id: safeUser.id,
