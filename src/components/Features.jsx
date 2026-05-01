@@ -27,14 +27,17 @@ function Features() {
   ];
 
   return (
-    <section id="features" className="py-20 px-8 bg-gray-50">
+    <section id="features" className="py-24 px-8 bg-gradient-to-b from-gray-50 to-white">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold text-gray-900 mb-4">
+        <div className="text-center mb-20">
+          <div className="inline-block mb-4 bg-teal-100 text-teal-700 px-4 py-2 rounded-full font-semibold text-sm">
+            Notre Plateforme
+          </div>
+          <h2 className="text-5xl font-bold text-gray-900 mb-6">
             Pour tous les professionnels de santé
           </h2>
-          <p className="text-gray-600 text-lg">
-            Pharmacies, Hôpitaux et Laboratoires
+          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+            Pharmacies, Hôpitaux et Laboratoires trouvent leurs solutions en un seul endroit
           </p>
         </div>
 
