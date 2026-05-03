@@ -2,8 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
-const https = require('https');
-const fs = require('fs');
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -47,20 +45,7 @@ app.get('/api/health', async (_req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-const certPath = path.resolve(__dirname, '../certs/certificate.pem');
-const keyPath = path.resolve(__dirname, '../certs/private-key.pem');
-
-if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
-  const options = {
-    key: fs.readFileSync(keyPath),
-    cert: fs.readFileSync(certPath),
-  };
-
-  https.createServer(options, app).listen(PORT, () => {
-    console.log(`✅ Backend running on https://localhost:${PORT}`);
-    console.log(`📋 Health check: https://localhost:${PORT}/api/health`);
-  });
-} else {
-  console.error('❌ Certificats non trouvés!');
-  process.exit(1);
-}
+app.listen(PORT, () => {
+  console.log(`✅ Backend running on port ${PORT}`);
+  console.log(`📋 Health check: http://localhost:${PORT}/api/health`);
+});
