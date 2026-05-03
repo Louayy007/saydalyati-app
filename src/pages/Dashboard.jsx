@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link,useLocation } from 'react-router-dom';
 import { apiRequest, getAuthUser } from '../lib/api';
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
@@ -31,11 +31,6 @@ function Sidebar({ activePath, inboxCount, user, isAdmin }) {
       badge: inboxCount,
       icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg>,
     },
-    ...(isAdmin ? [{
-      label: 'Administration',
-      path: '/admin',
-      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 12h9.75M10.5 18h9.75M3.75 6h.008v.008H3.75V6zm0 6h.008v.008H3.75V12zm0 6h.008v.008H3.75V18z" /></svg>,
-    }] : []),
   ];
 
   return (
@@ -114,8 +109,10 @@ function UrgencyBadge({ level }) {
 }
 
 // ─── ADMIN DASHBOARD ──────────────────────────────────────────────────────────
+// ─── ADMIN DASHBOARD ──────────────────────────────────────────────────────────
 function AdminDashboard({ user }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [analytics, setAnalytics] = useState(null);
   const [pendingUsers, setPendingUsers] = useState([]);
   const [recentRequests, setRecentRequests] = useState([]);
@@ -153,7 +150,6 @@ function AdminDashboard({ user }) {
         body: JSON.stringify({ status }),
       });
       setPendingUsers(prev => prev.filter(u => u.id !== userId));
-      // refresh analytics count
       setAnalytics(prev => prev ? {
         ...prev,
         pendingUsers: prev.pendingUsers - 1,
@@ -166,10 +162,11 @@ function AdminDashboard({ user }) {
   }
 
   const displayName = user?.profile?.fullName || user?.email || 'Admin';
+  const currentPath = location.pathname === '/create-offer' ? '/dashboard' : location.pathname;
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Sidebar activePath="/dashboard" inboxCount={0} user={user} isAdmin={true} />
+      <Sidebar activePath={currentPath} inboxCount={0} user={user} isAdmin={true} />
       <main className="ml-64 min-h-screen">
 
         {/* Header */}
@@ -209,7 +206,7 @@ function AdminDashboard({ user }) {
                 colorClass="text-teal-600" bgClass="bg-teal-50"
                 icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>}
               />
-              <StatCard label="En attente" value={analytics?.pendingUsers} sub="À valider" loading={loading}
+              <StatCard label="En attente" value={analytics?.waitingListCount} sub="À valider" loading={loading}
                 colorClass="text-amber-500" bgClass="bg-amber-50"
                 icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
               />
@@ -425,9 +422,14 @@ function AdminDashboard({ user }) {
   );
 }
 
+
+// ─── USER DASHBOARD ───────────────────────────────────────────────────────────
+
+
 // ─── USER DASHBOARD ───────────────────────────────────────────────────────────
 function UserDashboard({ user }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [listings, setListings] = useState([]);
   const [inboxRequests, setInboxRequests] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
@@ -463,10 +465,11 @@ function UserDashboard({ user }) {
   const acceptedRequests = [...inboxRequests, ...sentRequests].filter(r => r.status === 'accepted');
   const myListings = listings.filter(l => l.owner?.userId === user?.id);
   const displayName = user?.profile?.fullName || user?.email || 'Utilisateur';
+  const currentPath = location.pathname === '/create-offer' ? '/dashboard' : location.pathname;
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Sidebar activePath="/dashboard" inboxCount={pendingInbox.length} user={user} isAdmin={false} />
+      <Sidebar activePath={currentPath} inboxCount={pendingInbox.length} user={user} isAdmin={false} />
       <main className="ml-64 min-h-screen">
 
         {/* Header */}

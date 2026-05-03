@@ -16,7 +16,7 @@ const navItems = [
     icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
   },
   {
-    label: "Demandes d'échange", path: '/exchange-requests', badge: 3,
+    label: "Demandes d'échange", path: '/exchange-requests',
     icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg>,
   },
 ];
@@ -54,7 +54,7 @@ function normalizeWilayaName(rawWilaya) {
   return matched || rawWilaya || 'N/A';
 }
 
-function Sidebar({ activePath }) {
+function Sidebar({ activePath, inboxCount }) {
   const navigate = useNavigate();
   return (
     <aside className="fixed left-0 top-0 h-screen w-60 bg-white border-r border-gray-100 flex flex-col z-30 shadow-sm">
@@ -69,13 +69,14 @@ function Sidebar({ activePath }) {
       <nav className="flex-1 px-3 py-5 space-y-1">
         {navItems.map((item) => {
           const isActive = activePath === item.path;
+          const badge = item.path === '/exchange-requests' ? inboxCount : 0;
           return (
             <button key={item.path} onClick={() => navigate(item.path)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${isActive ? 'bg-teal-500 text-white shadow-md shadow-teal-200' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'}`}>
               <span className={isActive ? 'text-white' : 'text-gray-400'}>{item.icon}</span>
               <span className="flex-1 text-left">{item.label}</span>
-              {item.badge && (
-                <span className="w-5 h-5 rounded-full bg-amber-400 text-white text-xs font-bold flex items-center justify-center">{item.badge}</span>
+              {badge > 0 && (
+                <span className="w-5 h-5 rounded-full bg-amber-400 text-white text-xs font-bold flex items-center justify-center">{badge}</span>
               )}
             </button>
           );
@@ -323,6 +324,7 @@ export default function Marketplace() {
   const [isLoadingListings, setIsLoadingListings] = useState(true);
   const [listingsError, setListingsError] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState(search);
+  const [inboxCount, setInboxCount] = useState(0);
   const listingsCacheRef = useRef(new Map());
 
   const categoryOptions = useMemo(() => {
@@ -344,6 +346,15 @@ export default function Marketplace() {
     const nextSearch = searchParams.get('search') || '';
     setSearch(nextSearch);
   }, [searchParams]);
+
+  useEffect(() => {
+    apiRequest('/api/exchange-requests/inbox')
+      .then(data => {
+        const pending = Array.isArray(data) ? data.filter(r => r.status === 'pending').length : 0;
+        setInboxCount(pending);
+      })
+      .catch(() => setInboxCount(0));
+  }, []);
 
   useEffect(() => {
     const current = searchParams.get('search') || '';
@@ -391,7 +402,7 @@ export default function Marketplace() {
         }
 
         const rows = await apiRequest(`/api/listings${queryString ? `?${queryString}` : ''}`, { signal: controller.signal });
-        const mapped = rows.map((r) => ({
+        const mapped = rows.data.map((r) => ({
           id: r.id,
           name: r.title,
           category: r.category,
@@ -409,7 +420,8 @@ export default function Marketplace() {
         listingsCacheRef.current.set(queryString, mapped);
         setAllListings(mapped);
       } catch (error) {
-        if (error.name === 'AbortError') return;
+        // Ignore intentional aborts (filter changes / component unmount)
+        if (error.name === 'AbortError' || controller.signal.aborted) return;
         setAllListings([]);
         setListingsError(error.message || 'Impossible de charger les produits depuis la base de donnees.');
       } finally {
@@ -434,7 +446,7 @@ export default function Marketplace() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Sidebar activePath="/marketplace" />
+      <Sidebar activePath="/marketplace" inboxCount={inboxCount} />
 
       <main className="ml-60 min-h-screen flex flex-col">
         {/* Top Bar */}
@@ -459,7 +471,9 @@ export default function Marketplace() {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5 text-gray-500">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
               </svg>
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">3</span>
+              {inboxCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">{inboxCount}</span>
+              )}
             </button>
             <button
               onClick={() => navigate('/profile')}

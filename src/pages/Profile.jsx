@@ -1,29 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiRequest, clearAuthSession } from '../lib/api';
-
-const navItems = [
-  {
-    label: 'Tableau de bord', path: '/dashboard',
-    icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>,
-  },
-  {
-    label: 'Tableau des échanges', path: '/marketplace',
-    icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>,
-  },
-  {
-    label: 'Nouvelle déclaration', path: '/create-offer',
-    icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-  },
-  {
-    label: "Demandes d'échange", path: '/exchange-requests',
-    icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg>,
-  },
-  {
-    label: 'Mon profil', path: '/profile',
-    icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6.75a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75a17.933 17.933 0 01-7.499-1.632z" /></svg>,
-  },
-];
+import { apiRequest, clearAuthSession, getAuthUser } from '../lib/api';
 
 const defaultProfile = {
   establishmentName: 'Pharmacie Centrale',
@@ -46,37 +23,69 @@ const defaultProfile = {
 
 function Sidebar({ activePath }) {
   const navigate = useNavigate();
+  const currentUser = getAuthUser();
+  const isAdmin = currentUser?.role === 'administrator';
+  const displayName = currentUser?.profile?.fullName || currentUser?.email || 'Utilisateur';
+  const initials = displayName[0].toUpperCase();
+  const estType = currentUser?.profile?.establishmentType || (isAdmin ? 'Administrateur' : '');
+
+  const navItems = [
+    {
+      label: 'Tableau de bord', path: '/dashboard',
+      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>,
+    },
+    {
+      label: 'Tableau des échanges', path: '/marketplace',
+      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>,
+    },
+    {
+      label: 'Nouvelle déclaration', path: '/create-offer',
+      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>,
+    },
+    {
+      label: "Demandes d'échange", path: '/exchange-requests',
+      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg>,
+    },
+    ...(isAdmin ? [{
+      label: 'Administration', path: '/admin',
+      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 12h9.75M10.5 18h9.75M3.75 6h.008v.008H3.75V6zm0 6h.008v.008H3.75V12zm0 6h.008v.008H3.75V18z" /></svg>,
+    }] : []),
+  ];
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-60 bg-white border-r border-gray-100 flex flex-col z-30 shadow-sm">
-      <div className="flex items-center gap-3 px-5 py-5 border-b border-gray-100">
-        <div className="w-9 h-9 rounded-xl bg-teal-500 flex items-center justify-center shadow">
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-100 flex flex-col z-30">
+      <div className="flex items-center gap-3 px-6 py-6 border-b border-gray-100">
+        <div className="w-9 h-9 rounded-xl bg-teal-600 flex items-center justify-center shadow-sm">
           <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5">
             <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z" />
           </svg>
         </div>
-        <span className="text-lg font-bold text-gray-800 tracking-tight">SAYDALYATI</span>
+        <span className="text-lg font-black text-gray-900 tracking-tight uppercase">Saydalyati</span>
       </div>
-
-      <nav className="flex-1 px-3 py-5 space-y-1">
+      <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = activePath === item.path;
           return (
-            <button
-              key={item.path}
-              onClick={() => navigate(item.path)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${isActive ? 'bg-teal-500 text-white shadow-md shadow-teal-200' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'}`}
-            >
-              <span className={isActive ? 'text-white' : 'text-gray-400'}>{item.icon}</span>
+            <button key={item.path} onClick={() => navigate(item.path)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                isActive
+                  ? 'bg-teal-600 text-white shadow-sm hover:shadow-md'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              }`}>
+              <span className={`transition-colors ${isActive ? 'text-teal-100' : 'text-gray-400'}`}>{item.icon}</span>
               <span className="flex-1 text-left">{item.label}</span>
             </button>
           );
         })}
       </nav>
-
-      <div className="px-3 pb-5">
-        <button onClick={() => { clearAuthSession(); navigate('/login'); }} className="w-full text-sm bg-gray-50 hover:bg-red-50 text-gray-600 hover:text-red-500 border border-gray-200 rounded-xl py-2.5 transition-colors">
-          Déconnexion
+      <div className="px-4 py-4 border-t border-gray-100">
+        <button onClick={() => navigate('/profile')}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-100 transition-colors duration-200">
+          <div className="w-9 h-9 rounded-xl bg-teal-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{initials}</div>
+          <div className="text-left min-w-0">
+            <p className="text-sm font-semibold text-gray-800 truncate">{displayName}</p>
+            <p className="text-xs text-teal-600 capitalize">{estType}</p>
+          </div>
         </button>
       </div>
     </aside>
@@ -172,7 +181,7 @@ export default function Profile() {
     <div className="min-h-screen bg-gray-50">
       <Sidebar activePath="/profile" />
 
-      <main className="ml-60 min-h-screen">
+      <main className="ml-64 min-h-screen">
         <header className="bg-white border-b border-gray-100 px-8 py-4 sticky top-0 z-20">
           <h1 className="text-2xl font-bold text-gray-800">Mon profil</h1>
           <p className="text-sm text-gray-400 mt-0.5">Gérez les informations de votre établissement et vos paramètres de compte</p>

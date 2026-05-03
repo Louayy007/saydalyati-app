@@ -12,7 +12,7 @@ const navItems = [
     icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>,
   },
   {
-    label: 'Déclarer une pénurie', path: '/create-offer',
+    label: 'Nouvelle déclaration', path: '/create-offer',
     icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>,
   },
   {
@@ -43,9 +43,9 @@ function Sidebar({ activePath, user }) {
           return (
             <button key={item.path} onClick={() => navigate(item.path)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-                isActive ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                isActive ? 'bg-teal-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
               }`}>
-              <span className={isActive ? 'text-teal-400' : 'text-gray-400'}>{item.icon}</span>
+              <span className={isActive ? 'text-teal-100' : 'text-gray-400'}>{item.icon}</span>
               <span className="flex-1 text-left">{item.label}</span>
             </button>
           );

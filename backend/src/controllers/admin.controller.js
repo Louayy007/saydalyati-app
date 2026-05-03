@@ -1,112 +1,128 @@
-/**
- * Admin Control Panel Controller
- * Restricted to administrators only
- * Handles user approval workflow, user management, and analytics
- */
-
 const { z } = require('zod');
 const {
   listPendingUsers,
+  approveFromWaitingList,
+  rejectFromWaitingList,
   updateUserApproval,
   listExchangeRequests,
   listUsers,
   getAnalytics,
+  listAllListings,
+  deleteListing,
+  removeUser,
 } = require('../services/admin.service');
 
-/**
- * User approval status update validation schema
- */
-const updateApprovalSchema = z.object({
-  status: z.enum(['approved', 'rejected']), // Approve or reject registration
-});
-
-/**
- * Get all pending user registrations awaiting admin approval
- * Only administrators can access this
- * @route GET /api/admin/pending-users
- */
-async function getPendingUsers(_req, res) {
+const getPendingUsers = async (_req, res) => {
   try {
     const users = await listPendingUsers();
     return res.json(users);
   } catch (error) {
-    return res.status(500).json({ message: error.message || 'Failed to fetch pending users' });
+    return res.status(error.statusCode || 500).json({ message: error.message });
   }
-}
+};
 
-/**
- * Approve or reject a user registration
- * Only administrators can access this
- * Changes user's approval status and optionally sets approvedAt timestamp
- * @route PATCH /api/admin/users/:id/approval
- * @body {string} status - 'approved' or 'rejected'
- */
-async function patchUserApproval(req, res) {
+const approvePendingUser = async (req, res) => {
   try {
-    // Validate approval status
-    const parsed = updateApprovalSchema.parse(req.body);
-    const updated = await updateUserApproval(req.params.id, parsed.status);
-    return res.json(updated);
+    const { waitingId } = req.params;
+    const user = await approveFromWaitingList(waitingId);
+    return res.json({ message: 'User approved and moved to users list', user });
   } catch (error) {
-    // Handle validation errors
+    return res.status(error.statusCode || 500).json({ message: error.message });
+  }
+};
+
+const rejectPendingUser = async (req, res) => {
+  try {
+    const { waitingId } = req.params;
+    const result = await rejectFromWaitingList(waitingId);
+    return res.json(result);
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ message: error.message });
+  }
+};
+
+const updateApprovalStatus = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { status } = z.object({
+      status: z.enum(['approved', 'rejected']),
+    }).parse(req.body);
+    const user = await updateUserApproval(userId, status);
+    return res.json(user);
+  } catch (error) {
     if (error.name === 'ZodError') {
       return res.status(400).json({ message: 'Validation failed', issues: error.issues });
     }
-    return res.status(error.statusCode || 500).json({ message: error.message || 'Failed to update approval' });
+    return res.status(error.statusCode || 500).json({ message: error.message });
   }
-}
+};
 
-/**
- * Get all recent exchange requests
- * Shows marketplace activity
- * @route GET /api/admin/exchange-requests
- */
-async function getExchangeRequests(_req, res) {
+const getExchangeRequests = async (_req, res) => {
   try {
-    const rows = await listExchangeRequests();
-    return res.json(rows);
+    const requests = await listExchangeRequests();
+    return res.json(requests);
   } catch (error) {
-    return res.status(500).json({ message: error.message || 'Failed to fetch exchange requests' });
+    return res.status(500).json({ message: error.message });
   }
-}
+};
 
-/**
- * Get all users with optional filtering and search
- * Only returns non-admin users
- * @route GET /api/admin/users
- * @query {string} status - Filter by 'pending', 'approved', or 'rejected'
- * @query {string} search - Search by email, name, or establishment
- */
-async function getUsers(req, res) {
+const getUsers = async (req, res) => {
   try {
-    // Extract query parameters
-    const status = typeof req.query.status === 'string' ? req.query.status : undefined;
-    const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+    const { status, search } = req.query;
     const users = await listUsers({ status, search });
     return res.json(users);
   } catch (error) {
-    return res.status(500).json({ message: error.message || 'Failed to fetch users' });
+    return res.status(error.statusCode || 500).json({ message: error.message });
   }
-}
+};
 
-/**
- * Get platform analytics and statistics
- * Shows aggregate data about users, listings, and exchange requests
- * @route GET /api/admin/analytics
- */
-async function getAnalyticsSummary(_req, res) {
+const getDashboardAnalytics = async (_req, res) => {
   try {
-    const summary = await getAnalytics();
-    return res.json(summary);
+    const analytics = await getAnalytics();
+    return res.json(analytics);
   } catch (error) {
-    return res.status(500).json({ message: error.message || 'Failed to fetch analytics' });
+    return res.status(500).json({ message: error.message });
   }
-}
+};
+
+const getListings = async (_req, res) => {
+  try {
+    const listings = await listAllListings();
+    return res.json(listings);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const deleteListingById = async (req, res) => {
+  try {
+    const { listingId } = req.params;
+    const result = await deleteListing(listingId);
+    return res.json(result);
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ message: error.message });
+  }
+};
+
+const deleteUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const result = await removeUser(userId);
+    return res.json(result);
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ message: error.message });
+  }
+};
 
 module.exports = {
   getPendingUsers,
-  patchUserApproval,
+  approvePendingUser,
+  rejectPendingUser,
+  updateApprovalStatus,
   getExchangeRequests,
   getUsers,
-  getAnalyticsSummary,
+  getDashboardAnalytics,
+  getListings,
+  deleteListingById,
+  deleteUser,
 };

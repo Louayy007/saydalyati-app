@@ -1,43 +1,7 @@
-function resolveApiBase() {
-  const fromEnv = import.meta.env.VITE_API_URL;
-  if (fromEnv) {
-    return fromEnv.replace(/\/$/, '');
-  }
+const API_BASE_URL = '';
 
-  return '';
-}
-
-const API_BASE = resolveApiBase();
-const REQUEST_TIMEOUT_MS = 60000;
 const TOKEN_KEY = 'saydalyati_auth_token';
 const USER_KEY = 'saydalyati_auth_user';
-
-function getApiBaseCandidates() {
-  const candidates = [];
-
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    const isLocalhost = host === 'localhost' || host === '127.0.0.1';
-
-    if (isLocalhost) {
-      candidates.push('');
-
-      if (API_BASE) {
-        candidates.push(API_BASE);
-      }
-
-      if (API_BASE !== 'http://localhost:5000') {
-        candidates.push('http://localhost:5000');
-      }
-
-      return candidates.filter((value, index, arr) => arr.indexOf(value) === index);
-    }
-  }
-
-  candidates.push(API_BASE);
-
-  return candidates.filter((value, index, arr) => arr.indexOf(value) === index);
-}
 
 function sanitizeUserForSession(user) {
   if (!user || typeof user !== 'object') return null;
@@ -69,7 +33,6 @@ export function getAuthToken() {
 
 export function setAuthSession(token, user) {
   const safeUser = sanitizeUserForSession(user);
-
   try {
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(safeUser));
@@ -82,7 +45,6 @@ export function setAuthSession(token, user) {
           approvalStatus: safeUser.approvalStatus,
         }
       : null;
-
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(minimalUser));
   }
@@ -103,70 +65,46 @@ export function getAuthUser() {
   }
 }
 
-export async function apiRequest(path, options = {}) {
+export async function apiRequest(endpoint, options = {}) {
   const token = getAuthToken();
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(options.headers || {}),
+  const url = `${API_BASE_URL}${endpoint}`;
+
+  const fetchOptions = {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+    // Only apply default timeout if caller did not provide their own signal
+    signal: options.signal ?? AbortSignal.timeout(30000),
   };
 
   if (token) {
-    headers.Authorization = `Bearer ${token}`;
+    fetchOptions.headers.Authorization = `Bearer ${token}`;
   }
 
-  const { signal, ...restOptions } = options;
-  const baseCandidates = getApiBaseCandidates();
-  let response;
-  let lastError;
+  try {
+    const response = await fetch(url, fetchOptions);
 
-  for (const base of baseCandidates) {
-    const timeoutController = new AbortController();
-    const timeoutId = setTimeout(() => timeoutController.abort(), REQUEST_TIMEOUT_MS);
-
-    let combinedSignal = timeoutController.signal;
-    if (signal) {
-      const combinedController = new AbortController();
-      const abortCombined = () => combinedController.abort();
-      signal.addEventListener('abort', abortCombined, { once: true });
-      timeoutController.signal.addEventListener('abort', abortCombined, { once: true });
-      combinedSignal = combinedController.signal;
+    if (!response.ok) {
+      let errorMsg = 'API request failed';
+      try {
+        const error = await response.json();
+        errorMsg = error.message || errorMsg;
+      } catch {}
+      const err = new Error(errorMsg);
+      err.statusCode = response.status;
+      err.status = response.status;
+      throw err;
     }
 
-    try {
-      response = await fetch(`${base}${path}`, {
-        ...restOptions,
-        headers,
-        signal: combinedSignal,
-      });
-      clearTimeout(timeoutId);
-      lastError = null;
-      break;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      lastError = error;
-      continue;
+    return await response.json();
+  } catch (error) {
+    // Only convert TimeoutError (from AbortSignal.timeout) to user-friendly message
+    // AbortError means the caller intentionally cancelled — let it propagate as-is
+    if (error.name === 'TimeoutError') {
+      throw new Error('Timeout: Serveur ne répond pas');
     }
-  }
-
-  if (!response) {
-    const timedOut = lastError?.name === 'AbortError';
-    const networkError = new Error(
-      timedOut
-        ? 'Le serveur met trop de temps a repondre. Reessayez dans quelques secondes.'
-        : 'Impossible de joindre le serveur API. Verifiez que le backend est demarre et que VITE_API_URL est correct.'
-    );
-    networkError.statusCode = 0;
-    networkError.cause = lastError;
-    throw networkError;
-  }
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const error = new Error(data.message || 'API request failed');
-    error.statusCode = response.status;
-    error.payload = data;
     throw error;
   }
-
-  return data;
 }
