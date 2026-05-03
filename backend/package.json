@@ -4,12 +4,12 @@
   "description": "",
   "main": "src/server.js",
   "scripts": {
-  "dev": "nodemon src/server.js",
-  "start": "prisma migrate deploy && node src/server.js",
-  "prisma:generate": "prisma generate",
-  "prisma:migrate": "prisma migrate dev",
-  "prisma:studio": "prisma studio"
-},
+    "dev": "nodemon src/server.js",
+    "start": "prisma migrate deploy && node src/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -25,6 +25,7 @@
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^8.0.5",
     "path": "^0.12.7",
+    "resend": "^6.12.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {
