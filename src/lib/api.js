@@ -1,4 +1,4 @@
-const API_BASE_URL = '';
+const API_BASE_URL = 'https://saydalyati-app-production.up.railway.app';
 
 const TOKEN_KEY = 'saydalyati_auth_token';
 const USER_KEY = 'saydalyati_auth_user';
