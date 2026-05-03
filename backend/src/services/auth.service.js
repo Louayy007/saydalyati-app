@@ -1,6 +1,8 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const prisma = require('../prisma');
 const { signAuthToken } = require('../utils/jwt');
+const { sendEmail } = require('../utils/mailer');
 
 const RETRYABLE_PRISMA_CODES = new Set(['P1001', 'P1002']);
 
@@ -16,7 +18,6 @@ async function runWithDbRetry(action, retries = 6, delayMs = 1000) {
       if (!isRetryable || attempt === retries) {
         break;
       }
-
       await new Promise((resolve) => setTimeout(resolve, delayMs * (attempt + 1)));
     }
   }
@@ -50,10 +51,10 @@ async function registerUser(input) {
     .filter(Boolean);
   const isAdmin = adminEmails.includes(email);
 
-  const existingUser = await runWithDbRetry(() => 
+  const existingUser = await runWithDbRetry(() =>
     prisma.user.findUnique({ where: { email } })
   );
-  const existingWaiting = await runWithDbRetry(() => 
+  const existingWaiting = await runWithDbRetry(() =>
     prisma.waitingList.findUnique({ where: { email } })
   );
 
@@ -65,7 +66,6 @@ async function registerUser(input) {
 
   const passwordHash = await bcrypt.hash(input.password, 10);
 
-  // IF ADMIN: Create directly in User
   if (isAdmin) {
     const user = await runWithDbRetry(() =>
       prisma.user.create({
@@ -93,19 +93,15 @@ async function registerUser(input) {
       })
     );
 
-    const token = signAuthToken({ 
-      userId: user.id, 
-      email: user.email, 
-      role: user.role 
+    const token = signAuthToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
     });
 
-    return {
-      token,
-      user: toSafeAuthUser(user),
-    };
+    return { token, user: toSafeAuthUser(user) };
   }
 
-  // IF NORMAL USER: Create in WaitingList
   const waiting = await runWithDbRetry(() =>
     prisma.waitingList.create({
       data: {
@@ -167,8 +163,101 @@ async function loginUser(input) {
 
   const token = signAuthToken({ userId: user.id, email: user.email, role: user.role });
 
+  return { token, user: toSafeAuthUser(user) };
+}
+
+async function forgotPassword(input) {
+  const email = input.email.toLowerCase().trim();
+
+  console.log('=== FORGOT PASSWORD CALLED for:', email, '===');
+  console.log('SMTP_HOST:', process.env.SMTP_HOST);
+  console.log('SMTP_PORT:', process.env.SMTP_PORT);
+  console.log('SMTP_USER:', process.env.SMTP_USER);
+  console.log('SMTP_PASS set:', !!process.env.SMTP_PASS);
+
+  const user = await runWithDbRetry(() =>
+    prisma.user.findUnique({ where: { email } })
+  );
+
+  console.log('User found in DB:', !!user);
+
+  if (!user) {
+    console.log('No user found - returning early');
+    return {
+      message: 'Si un compte existe avec cette adresse email, vous recevrez un lien de reinitialisation.',
+    };
+  }
+
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+  await runWithDbRetry(() =>
+    prisma.passwordReset.create({
+      data: { email, token: resetToken, expiresAt },
+    })
+  );
+
+  console.log('Reset token saved to DB');
+
+  const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+  const subject = 'Réinitialiser votre mot de passe - SAYDALYATI';
+  const text = `Bonjour,\n\nCliquez sur ce lien pour réinitialiser votre mot de passe:\n${resetLink}\n\nCe lien expirera dans 1 heure.\n\nCordialement,\nSAYDALYATI`;
+  const html = `<p>Bonjour,</p><p><a href="${resetLink}" style="background-color:#14b8a6;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;">Réinitialiser mon mot de passe</a></p><p>Ce lien expirera dans 1 heure.</p><p>Cordialement,<br/>SAYDALYATI</p>`;
+
+  console.log('Sending email to:', email);
+
+  try {
+    const result = await sendEmail({ to: email, subject, text, html });
+    console.log('Email result:', result);
+  } catch (err) {
+    console.error('Email sending failed:', {
+      message: err.message,
+      code: err.code,
+      response: err.response,
+    });
+  }
+
   return {
-    token,
+    message: 'Si un compte existe avec cette adresse email, vous recevrez un lien de reinitialisation.',
+  };
+}
+
+async function resetPassword(input) {
+  const resetRecord = await runWithDbRetry(() =>
+    prisma.passwordReset.findUnique({ where: { token: input.token } })
+  );
+
+  if (!resetRecord) {
+    const error = new Error('Le lien de réinitialisation est invalide ou a expiré.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (new Date() > resetRecord.expiresAt) {
+    await runWithDbRetry(() =>
+      prisma.passwordReset.delete({ where: { token: input.token } })
+    );
+    const error = new Error('Le lien de réinitialisation a expiré.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const passwordHash = await bcrypt.hash(input.password, 10);
+
+  const user = await runWithDbRetry(() =>
+    prisma.user.update({
+      where: { email: resetRecord.email },
+      data: { passwordHash },
+      include: { profile: true },
+    })
+  );
+
+  await runWithDbRetry(() =>
+    prisma.passwordReset.delete({ where: { token: input.token } })
+  );
+
+  return {
+    message: 'Votre mot de passe a été réinitialisé avec succès.',
     user: toSafeAuthUser(user),
   };
 }
@@ -177,4 +266,6 @@ module.exports = {
   registerUser,
   loginUser,
   toSafeAuthUser,
+  forgotPassword,
+  resetPassword,
 };

@@ -75,7 +75,6 @@ export async function apiRequest(endpoint, options = {}) {
       'Content-Type': 'application/json',
       ...options.headers,
     },
-    // Only apply default timeout if caller did not provide their own signal
     signal: options.signal ?? AbortSignal.timeout(30000),
   };
 
@@ -100,8 +99,6 @@ export async function apiRequest(endpoint, options = {}) {
 
     return await response.json();
   } catch (error) {
-    // Only convert TimeoutError (from AbortSignal.timeout) to user-friendly message
-    // AbortError means the caller intentionally cancelled — let it propagate as-is
     if (error.name === 'TimeoutError') {
       throw new Error('Timeout: Serveur ne répond pas');
     }
