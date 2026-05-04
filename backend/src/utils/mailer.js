@@ -1,5 +1,4 @@
 const sendEmail = async ({ to, subject, text, html }) => {
-  // Check if Resend API key is configured
   if (!process.env.RESEND_API_KEY) {
     console.warn('⚠️  RESEND_API_KEY not configured. Email skipped.', { to, subject });
     return { skipped: true };
@@ -13,7 +12,7 @@ const sendEmail = async ({ to, subject, text, html }) => {
         'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: 'SAYDALYATI <onboarding@resend.dev>',  // Use Resend sandbox for testing
+        from: process.env.MAIL_FROM || 'noreply@resend.dev',
         to: [to],
         subject,
         html: html || text,
