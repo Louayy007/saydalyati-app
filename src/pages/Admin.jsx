@@ -503,7 +503,7 @@ export default function Admin() {
                 <table className="w-full min-w-[940px]">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-100">
-                      {['Utilisateur', 'Email', 'Établissement', 'Statut', 'Certificat', 'Actions'].map((h) => (
+                      {['Utilisateur', 'Email', 'Établissement', 'Statut', 'Actions'].map((h) => (
                         <th key={h} className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide px-4 py-3">
                           {h}
                         </th>
@@ -513,14 +513,14 @@ export default function Admin() {
                   <tbody>
                     {loadingUsers && (
                       <tr>
-                        <td colSpan={6} className="px-4 py-6 text-sm text-gray-500 animate-pulse">
+                        <td colSpan={5} className="px-4 py-6 text-sm text-gray-500 animate-pulse">
                           Chargement des utilisateurs...
                         </td>
                       </tr>
                     )}
                     {!loadingUsers && users.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="px-4 py-6 text-sm text-gray-500">
+                        <td colSpan={5} className="px-4 py-6 text-sm text-gray-500">
                           Aucun utilisateur trouvé.
                         </td>
                       </tr>
@@ -536,21 +536,7 @@ export default function Admin() {
                               {user.approvalStatus}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
-                            {user.profile?.certificateFileData ? (
-                              <a
-                                href={user.profile.certificateFileData}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-teal-700 hover:text-teal-800 font-semibold"
-                                download={user.profile?.certificateFileName || 'certificat'}
-                              >
-                                Ouvrir
-                              </a>
-                            ) : (
-                              <span className="text-red-600 font-semibold">Absent</span>
-                            )}
-                          </td>
+
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               {user.approvalStatus === 'pending' ? (
