@@ -1,43 +1,30 @@
-const nodemailer = require('nodemailer');
-
-function getTransporter() {
-  const user = process.env.SMTP_USER ? process.env.SMTP_USER.trim() : null;
-  const pass = process.env.SMTP_PASS ? process.env.SMTP_PASS.trim() : null;
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
-
-  if (!host || !user || !pass) {
-    console.warn('SMTP not configured. Email will be skipped.');
-    return null;
-  }
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: false,
-    auth: { user, pass },
-  });
-}
+const SibApiV3Sdk = require('@getbrevo/brevo');
 
 async function sendEmail({ to, subject, text, html }) {
-  const transporter = getTransporter();
-  if (!transporter) {
-    console.warn('Mailer not configured. Skipping email to:', to);
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) {
+    console.warn('BREVO_API_KEY not set. Email skipped.');
     return { skipped: true };
   }
 
-  const from = process.env.MAIL_FROM || process.env.SMTP_USER;
+  const client = SibApiV3Sdk.ApiClient.instance;
+  client.authentications['api-key'].apiKey = apiKey;
+
+  const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+
+  const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+  sendSmtpEmail.sender = { name: 'SAYDALYATI', email: process.env.MAIL_FROM || 'l_boutaoui@estin.dz' };
+  sendSmtpEmail.to = [{ email: to }];
+  sendSmtpEmail.subject = subject;
+  sendSmtpEmail.textContent = text;
+  sendSmtpEmail.htmlContent = html;
 
   try {
-    const info = await transporter.sendMail({ from, to, subject, text, html });
-    console.log('Email sent OK to', to, '| id:', info.messageId);
-    return { skipped: false, messageId: info.messageId };
+    const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    console.log('Email sent OK to', to, '| id:', result.messageId);
+    return { skipped: false, messageId: result.messageId };
   } catch (err) {
-    console.error('Email FAILED:', {
-      message: err.message,
-      code: err.code,
-      response: err.response,
-    });
+    console.error('Email FAILED:', err.message);
     throw err;
   }
 }
