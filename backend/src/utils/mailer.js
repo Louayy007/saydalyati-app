@@ -1,31 +1,43 @@
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getTransporter() {
+  const user = process.env.SMTP_USER ? process.env.SMTP_USER.trim() : null;
+  const pass = process.env.SMTP_PASS ? process.env.SMTP_PASS.trim() : null;
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT || 587);
+
+  if (!host || !user || !pass) {
+    console.warn('SMTP not configured. Email will be skipped.');
+    return null;
+  }
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: false,
+    auth: { user, pass },
+  });
+}
 
 async function sendEmail({ to, subject, text, html }) {
-  if (!process.env.RESEND_API_KEY) {
-    console.warn('RESEND_API_KEY not set. Email skipped.');
+  const transporter = getTransporter();
+  if (!transporter) {
+    console.warn('Mailer not configured. Skipping email to:', to);
     return { skipped: true };
   }
 
+  const from = process.env.MAIL_FROM || process.env.SMTP_USER;
+
   try {
-    const { data, error } = await resend.emails.send({
-      from: 'SAYDALYATI <onboarding@resend.dev>',
-      to,
-      subject,
-      text,
-      html,
-    });
-
-    if (error) {
-      console.error('Resend error:', error);
-      throw new Error(error.message);
-    }
-
-    console.log('Email sent OK to', to, '| id:', data.id);
-    return { skipped: false, messageId: data.id };
+    const info = await transporter.sendMail({ from, to, subject, text, html });
+    console.log('Email sent OK to', to, '| id:', info.messageId);
+    return { skipped: false, messageId: info.messageId };
   } catch (err) {
-    console.error('Email FAILED:', err.message);
+    console.error('Email FAILED:', {
+      message: err.message,
+      code: err.code,
+      response: err.response,
+    });
     throw err;
   }
 }
