@@ -59,6 +59,16 @@ async function listPendingUsers() {
     phone: row.phone,
     wilaya: row.wilaya,
     createdAt: row.createdAt,
+    profile: {
+      fullName: row.fullName || null,
+      establishmentName: row.establishmentName || null,
+      establishmentType: row.establishmentType || null,
+      certificateFileName: row.certificateFileName || null,
+      certificateFileData: row.certificateFileData || null,
+      certificateMimeType: row.certificateMimeType || null,
+      phone: row.phone || null,
+      wilaya: row.wilaya || null,
+    },
   }));
 }
 
@@ -210,7 +220,6 @@ async function listExchangeRequests(limit = 50) {
 
 async function listUsers({ status, search } = {}) {
   const term = search && search.trim() ? search.trim() : null;
-  const LIMIT = 100; // Fetch max 100 users at a time
 
   const userWhere = { role: 'usersimple' };
   if (status === 'approved' || status === 'rejected') {
@@ -245,27 +254,7 @@ async function listUsers({ status, search } = {}) {
           prisma.user.findMany({
             where: userWhere,
             orderBy: { createdAt: 'desc' },
-            take: LIMIT,
-            select: {
-              id: true,
-              email: true,
-              role: true,
-              approvalStatus: true,
-              approvedAt: true,
-              createdAt: true,
-              profile: {
-                select: {
-                  fullName: true,
-                  establishmentName: true,
-                  establishmentType: true,
-                  certificateFileName: true,
-                  certificateMimeType: true,
-                  phone: true,
-                  wilaya: true,
-                  // Exclude certificateFileData (large binary) from list view
-                },
-              },
-            },
+            include: { profile: true },
           })
         ),
     skipWaiting
@@ -274,28 +263,11 @@ async function listUsers({ status, search } = {}) {
           prisma.waitingList.findMany({
             where: waitingWhere,
             orderBy: { createdAt: 'desc' },
-            take: LIMIT,
           })
         ),
   ]);
 
-  const mappedUsers = userRows.map((user) => ({
-    id: user.id,
-    email: user.email,
-    role: user.role,
-    approvalStatus: user.approvalStatus,
-    approvedAt: user.approvedAt,
-    createdAt: user.createdAt,
-    profile: {
-      fullName: user.profile?.fullName || null,
-      establishmentName: user.profile?.establishmentName || null,
-      establishmentType: user.profile?.establishmentType || null,
-      certificateFileName: user.profile?.certificateFileName || null,
-      certificateMimeType: user.profile?.certificateMimeType || null,
-      phone: user.profile?.phone || null,
-      wilaya: user.profile?.wilaya || null,
-    },
-  }));
+  const mappedUsers = userRows.map(mapUser);
 
   const mappedWaiting = waitingRows.map((w) => ({
     id: w.id,
@@ -310,6 +282,7 @@ async function listUsers({ status, search } = {}) {
       establishmentName: w.establishmentName || null,
       establishmentType: w.establishmentType || null,
       certificateFileName: w.certificateFileName || null,
+      certificateFileData: w.certificateFileData || null,
       certificateMimeType: w.certificateMimeType || null,
       phone: w.phone || null,
       wilaya: w.wilaya || null,
