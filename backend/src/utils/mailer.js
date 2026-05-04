@@ -1,32 +1,33 @@
-const SibApiV3Sdk = require('@getbrevo/brevo');
+const sendResetEmail = async (to, resetLink) => {
+  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'api-key': process.env.BREVO_API_KEY,
+    },
+    body: JSON.stringify({
+      sender: { name: 'Saydalyati', email: 'l_boutaoui@estin.dz' },
+      to: [{ email: to }],
+      subject: 'Réinitialisation de votre mot de passe',
+      htmlContent: `
+        <h2>Réinitialisation du mot de passe</h2>
+        <p>Cliquez sur le lien ci-dessous pour réinitialiser votre mot de passe :</p>
+        <a href="${resetLink}" style="background:#2563eb;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;">
+          Réinitialiser le mot de passe
+        </a>
+        <p>Ce lien expire dans 1 heure.</p>
+        <p>Si vous n'avez pas demandé cela, ignorez cet email.</p>
+      `,
+    }),
+  });
 
-async function sendEmail({ to, subject, text, html }) {
-  const apiKey = process.env.BREVO_API_KEY;
-  if (!apiKey) {
-    console.warn('BREVO_API_KEY not set. Email skipped.');
-    return { skipped: true };
+  if (!response.ok) {
+    const err = await response.json();
+    console.error('Brevo error:', err);
+    throw new Error('Email sending failed');
   }
 
-  const client = SibApiV3Sdk.ApiClient.instance;
-  client.authentications['api-key'].apiKey = apiKey;
+  console.log('Email sent successfully to:', to);
+};
 
-  const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-
-  const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-  sendSmtpEmail.sender = { name: 'SAYDALYATI', email: process.env.MAIL_FROM || 'l_boutaoui@estin.dz' };
-  sendSmtpEmail.to = [{ email: to }];
-  sendSmtpEmail.subject = subject;
-  sendSmtpEmail.textContent = text;
-  sendSmtpEmail.htmlContent = html;
-
-  try {
-    const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
-    console.log('Email sent OK to', to, '| id:', result.messageId);
-    return { skipped: false, messageId: result.messageId };
-  } catch (err) {
-    console.error('Email FAILED:', err.message);
-    throw err;
-  }
-}
-
-module.exports = { sendEmail };
+module.exports = { sendResetEmail };
