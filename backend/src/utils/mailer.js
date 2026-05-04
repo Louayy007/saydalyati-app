@@ -1,32 +1,38 @@
-const sendResetEmail = async (to, resetLink) => {
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-    },
-    body: JSON.stringify({
-      from: 'Saydalyati <onboarding@resend.dev>',
-      to: [to],
-      subject: 'Reinitialisation de votre mot de passe',
-      html: `
-        <h2>Reinitialisation du mot de passe</h2>
-        <p>Cliquez sur le lien ci-dessous pour reinitialiser votre mot de passe :</p>
-        <a href="${resetLink}" style="background:#2563eb;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;">
-          Reinitialiser le mot de passe
-        </a>
-        <p>Ce lien expire dans 1 heure.</p>
-      `,
-    }),
-  });
-
-  if (!response.ok) {
-    const err = await response.json();
-    console.error('Resend error:', err);
-    throw new Error('Email sending failed');
+const sendEmail = async ({ to, subject, text, html }) => {
+  // Check if Resend API key is configured
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('⚠️  RESEND_API_KEY not configured. Email skipped.', { to, subject });
+    return { skipped: true };
   }
 
-  console.log('Email sent successfully to:', to);
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: 'SAYDALYATI <onboarding@resend.dev>',  // Use Resend sandbox for testing
+        to: [to],
+        subject,
+        html: html || text,
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      console.error('❌ Resend API Error:', err);
+      throw new Error(`Resend API Error: ${err.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('✅ Email sent successfully to:', to, 'Message ID:', data.id);
+    return { skipped: false, messageId: data.id };
+  } catch (error) {
+    console.error('❌ Email sending failed:', error.message);
+    throw error;
+  }
 };
 
-module.exports = { sendResetEmail };
+module.exports = { sendEmail };
