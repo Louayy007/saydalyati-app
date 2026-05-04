@@ -8,12 +8,12 @@ const sendResetEmail = async (to, resetLink) => {
     body: JSON.stringify({
       from: 'Saydalyati <onboarding@resend.dev>',
       to: [to],
-      subject: 'Réinitialisation de votre mot de passe',
+      subject: 'Reinitialisation de votre mot de passe',
       html: `
-        <h2>Réinitialisation du mot de passe</h2>
-        <p>Cliquez sur le lien ci-dessous pour réinitialiser votre mot de passe :</p>
+        <h2>Reinitialisation du mot de passe</h2>
+        <p>Cliquez sur le lien ci-dessous pour reinitialiser votre mot de passe :</p>
         <a href="${resetLink}" style="background:#2563eb;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;">
-          Réinitialiser le mot de passe
+          Reinitialiser le mot de passe
         </a>
         <p>Ce lien expire dans 1 heure.</p>
       `,
