@@ -69,13 +69,16 @@ export async function apiRequest(endpoint, options = {}) {
   const token = getAuthToken();
   const url = `${API_BASE_URL}${endpoint}`;
 
+  // Use longer timeout for admin endpoints (60 seconds) vs regular endpoints (30 seconds)
+  const timeout = endpoint.startsWith('/api/admin') ? 60000 : 30000;
+
   const fetchOptions = {
     ...options,
     headers: {
       'Content-Type': 'application/json',
       ...options.headers,
     },
-    signal: options.signal ?? AbortSignal.timeout(30000),
+    signal: options.signal ?? AbortSignal.timeout(timeout),
   };
 
   if (token) {
@@ -99,8 +102,8 @@ export async function apiRequest(endpoint, options = {}) {
 
     return await response.json();
   } catch (error) {
-    if (error.name === 'TimeoutError') {
-      throw new Error('Timeout: Serveur ne répond pas');
+    if (error.name === 'AbortError') {
+      throw new Error('Timeout: Serveur ne répond pas ou requête trop longue');
     }
     throw error;
   }
